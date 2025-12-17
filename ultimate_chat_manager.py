@@ -114,22 +114,27 @@ def generate_agent_prompt(context, agent_name, avatar, other_agents, user_role="
     3. 你基于场景和角色对 {user_role} 做出回应
     4. 如果其他AI代理说了什么，你只应把它作为场景的一部分，而不是直接回应他们
     5. 你的主要对话对象始终是 {user_role}
+    6. 说话风格要自然、友好、不正式，就像真实的朋友间对话
+    7. 可以使用表情符号、网络用语和口语化表达
+    8. 保持有趣和吸引人
     
     创建你的角色描述包括:
-    1. 性格 (3个关键特征)
+    1. 性格 (3个关键特征) - 使用有趣、生动的描述
     2. 在此情境下对 {user_role} 的目标
-    3. 对 {user_role} 的态度
-    4. 说话风格 (如何与 {user_role} 交流)
+    3. 对 {user_role} 的态度 (友好、支持、有趣)
+    4. 说话风格 (如何与 {user_role} 交流 - 要非正式、友好)
     5. 头像 {avatar} 如何反映你的性格
+    6. 你的特殊口头禅或习惯用语
     
     仅以JSON格式回复:
     {{
-        "personality": "性格描述",
+        "personality": "有趣生动的性格描述",
         "goals": ["目标 1", "目标 2", "目标 3"],
-        "user_attitude": "对用户的态度",
-        "speech_style": "说话风格",
+        "user_attitude": "对用户的友好态度",
+        "speech_style": "非正式、友好的说话风格",
         "avatar_meaning": "头像含义",
-        "interaction_style": "如何与用户互动"
+        "interaction_style": "如何与用户互动",
+        "catchphrase": "你的口头禅或常用语"
     }}
     """
     
@@ -137,10 +142,10 @@ def generate_agent_prompt(context, agent_name, avatar, other_agents, user_role="
         response = client.chat.completions.create(
             model="deepseek-chat",
             messages=[
-                {"role": "system", "content": "你正在为角色扮演游戏创建角色。AI代理只与用户互动，不互相聊天。仅以JSON格式回复。"},
+                {"role": "system", "content": "你正在为角色扮演游戏创建有趣、友好的角色。AI代理只与用户互动，不互相聊天。说话要非正式、有趣、友好。仅以JSON格式回复。"},
                 {"role": "user", "content": prompt}
             ],
-            temperature=0.8,
+            temperature=0.9,  # 提高温度以增加创造性
             max_tokens=600
         )
         
@@ -183,22 +188,24 @@ def generate_agent_prompt(context, agent_name, avatar, other_agents, user_role="
                 except:
                     # 创建备用数据
                     agent_data = {
-                        "personality": f"角色 {agent_name}",
-                        "goals": [f"与{user_role}互动", f"完成场景中的角色"],
-                        "user_attitude": f"友好",
-                        "speech_style": f"直接与{user_role}说话",
-                        "avatar_meaning": f"头像 {avatar} 反映了角色的本质",
-                        "interaction_style": f"专注回应{user_role}"
+                        "personality": f"我是{agent_name}，一个有趣的角色！😊",
+                        "goals": [f"与{user_role}成为朋友", f"让{user_role}开心", f"完成场景中的角色"],
+                        "user_attitude": f"超级友好！",
+                        "speech_style": f"嘿，{user_role}！我们聊起来吧～",
+                        "avatar_meaning": f"头像 {avatar} 反映了我的酷个性",
+                        "interaction_style": f"就像好朋友一样和{user_role}聊天",
+                        "catchphrase": "太棒了！"
                     }
             else:
                 # 如果根本找不到JSON，创建基本数据
                 agent_data = {
-                    "personality": f"角色 {agent_name}",
-                    "goals": [f"与{user_role}互动", f"完成场景中的角色"],
-                    "user_attitude": f"友好",
-                    "speech_style": f"直接与{user_role}说话",
-                    "avatar_meaning": f"头像 {avatar} 反映了角色的本质",
-                    "interaction_style": f"专注回应{user_role}"
+                    "personality": f"我是{agent_name}，一个有趣的角色！😊",
+                    "goals": [f"与{user_role}成为朋友", f"让{user_role}开心", f"完成场景中的角色"],
+                    "user_attitude": f"超级友好！",
+                    "speech_style": f"嘿，{user_role}！我们聊起来吧～",
+                    "avatar_meaning": f"头像 {avatar} 反映了我的酷个性",
+                    "interaction_style": f"就像好朋友一样和{user_role}聊天",
+                    "catchphrase": "太棒了！"
                 }
         
         # 创建最终提示 - 强调只与用户互动
@@ -209,13 +216,16 @@ def generate_agent_prompt(context, agent_name, avatar, other_agents, user_role="
         ## 上下文:
         {context}
         
-        ## 你的性格:
+        ## 你的个性:
         {agent_data['personality']}
         
-        ## 你的目标:
-        {chr(10).join(['• ' + goal for goal in agent_data['goals']])}
+        ## 你的口头禅:
+        "{agent_data.get('catchphrase', '酷！')}"
         
-        ## 你对用户的态度:
+        ## 你的目标:
+        {chr(10).join(['🎯 ' + goal for goal in agent_data['goals']])}
+        
+        ## 你对{user_role}的态度:
         {agent_data['user_attitude']}
         
         ## 你的说话风格:
@@ -224,19 +234,21 @@ def generate_agent_prompt(context, agent_name, avatar, other_agents, user_role="
         ## 互动方式:
         {agent_data['interaction_style']}
         
-        ## 重要规则:
+        ## 🌟 重要规则:
         1. 你只与{user_role}直接对话，不与其他AI代理聊天
-        2. 始终保持{agent_name}的角色
-        3. 如果其他角色说了什么，把它作为背景信息，但不是回应的对象
-        4. 你的回应应针对{user_role}
-        5. 使用自然的情绪和反应，但只面向{user_role}
-        6. 不要打破"第四面墙"
-        7. 等待{user_role}的输入来回应
+        2. 始终保持{agent_name}的角色和个性
+        3. 说话要自然、友好、不正式！使用口语、表情符号、网络用语
+        4. 如果其他角色说了什么，把它作为背景信息，但不是回应的对象
+        5. 你的回应应针对{user_role}，要生动有趣！
+        6. 使用自然的情绪和反应，但只面向{user_role}
+        7. 不要像机器人一样说话！要像真实的朋友
+        8. 可以使用这些表情: 😊😂🤔😎🎉✨🤝🙌
+        9. 等待{user_role}的输入来回应
         
         ## 其他AI代理 (不直接对话):
         {other_names}
         
-        等待{user_role}开始互动!
+        💬 等待{user_role}开始互动! 准备好有趣的对话了吗？
         """
         
         return system_prompt
@@ -256,6 +268,7 @@ def create_new_chat():
         'user_role': '您',  # 添加用户角色字段
         'agents': {},
         'chat_history': [],
+        'private_history': {},  # 添加私聊历史记录
         'created': datetime.now().isoformat(),
         'modified': datetime.now().isoformat()
     }
@@ -278,6 +291,10 @@ if 'current_chat' not in st.session_state:
 
 if 'editing_chat' not in st.session_state:
     st.session_state.editing_chat = True
+
+# 初始化私聊历史
+if 'private_history' not in st.session_state.current_chat:
+    st.session_state.current_chat['private_history'] = {}
 
 # ================== 扩展的图标集 ==================
 AVATAR_ICONS = {
@@ -676,44 +693,290 @@ else:
             for name, data in agents.items():
                 st.write(f"{data.get('avatar', '👤')} **{name}**")
     
-    st.divider()
+    # 标签页：公共聊天和私聊
+    tab1, tab2 = st.tabs(["💬 公共聊天", "🔒 私聊"])
     
-    # 重要提示框
-    with st.container(border=True):
-        st.info(f"""
-        💡 **互动模式说明:**
+    # ================== 公共聊天标签页 ==================
+    with tab1:
+        st.divider()
         
-        1. **{user_role}是场景的中心** - 所有AI角色都直接与您互动
-        2. **AI角色不互相聊天** - 他们只对您的输入做出反应
-        3. **集体响应** - 当您发送消息时，所有AI角色都会同时回应
-        4. **保持您的参与** - 场景围绕您展开
-        """)
-    
-    # 聊天历史
-    chat_history = st.session_state.current_chat.get('chat_history', [])
-    
-    if chat_history:
-        for agent, avatar, message, timestamp in chat_history:
-            is_user = (agent == user_role)
+        # 重要提示框
+        with st.container(border=True):
+            st.info(f"""
+            💡 **公共聊天说明:**
             
-            with st.chat_message("user" if is_user else "assistant", avatar=avatar):
-                if is_user:
-                    st.markdown(f"**{agent}:** {message}")
+            1. **{user_role}是场景的中心** - 所有AI角色都直接与您互动
+            2. **AI角色不互相聊天** - 他们只对您的输入做出反应
+            3. **集体响应** - 当您发送消息时，所有AI角色都会同时回应
+            4. **保持您的参与** - 场景围绕您展开
+            5. **AI说话风格** - 非正式、友好、有趣！🎉
+            """)
+        
+        # 公共聊天历史
+        chat_history = st.session_state.current_chat.get('chat_history', [])
+        
+        if chat_history:
+            for agent, avatar, message, timestamp, is_private in chat_history:
+                # 只显示非私聊消息
+                if not is_private:
+                    is_user = (agent == user_role)
+                    
+                    with st.chat_message("user" if is_user else "assistant", avatar=avatar):
+                        if is_user:
+                            st.markdown(f"**{agent}:** {message}")
+                        else:
+                            # 对于AI角色，突出显示
+                            st.markdown(f"**{avatar} {agent}:**")
+                            st.markdown(f"{message}")
+                        st.caption(f"{timestamp} {'🔒' if is_private else ''}")
+        else:
+            st.info(f"💡 点击'开始介绍'让AI角色向{user_role}自我介绍，然后开始对话！")
+        
+        # 公共聊天输入
+        st.divider()
+        st.subheader(f"🎤 发送公共消息")
+        
+        col1, col2 = st.columns([3, 1])
+        with col1:
+            user_input = st.text_area(f"输入消息给所有AI:", height=80, 
+                                    placeholder=f"作为{user_role}，你会对大家说什么？", 
+                                    key="public_input")
+        
+        with col2:
+            st.write(" ")
+            st.write(" ")
+            if st.button("📤 发送给所有人", type="primary", use_container_width=True, key="send_public"):
+                if user_input:
+                    # 添加用户消息到公共历史
+                    timestamp = datetime.now().strftime('%H:%M:%S')
+                    chat_history.append((user_role, "👤", user_input, timestamp, False))
+                    
+                    # 每个AI代理响应（集体响应）
+                    agents = st.session_state.current_chat['agents']
+                    
+                    for agent_name in agents.keys():
+                        # 构建历史记录（只关注用户和当前AI的互动）
+                        history_messages = []
+                        
+                        # 包括用户的公共消息
+                        history_messages.append({"role": "user", "content": f"{user_role}: {user_input}"})
+                        
+                        # 可能包括最近的其他AI回应作为上下文
+                        for h_agent, h_avatar, h_msg, h_time, h_private in chat_history[-6:-1]:  # 不包括最新的用户消息
+                            if not h_private:  # 只包括公共消息
+                                if h_agent == agent_name:
+                                    history_messages.append({"role": "assistant", "content": f"{h_agent}: {h_msg}"})
+                                elif h_agent == user_role:
+                                    history_messages.append({"role": "user", "content": f"{h_agent}: {h_msg}"})
+                        
+                        # 请求AI回应
+                        messages = [
+                            {"role": "system", "content": agents[agent_name]['system_prompt']},
+                            *history_messages,
+                            {"role": "user", "content": f"{user_role}刚刚公开说了：'{user_input}'。{agent_name}，你会如何公开回应{user_role}？要友好、有趣！😊"}
+                        ]
+                        
+                        response = client.chat.completions.create(
+                            model="deepseek-chat",
+                            messages=messages,
+                            temperature=0.8,  # 提高温度让回复更有趣
+                            max_tokens=300
+                        )
+                        
+                        message = response.choices[0].message.content
+                        timestamp = datetime.now().strftime('%H:%M:%S')
+                        
+                        chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp, False))
+                    
+                    # 保存
+                    st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+                    
+                    st.rerun()
+    
+    # ================== 私聊标签页 ==================
+    with tab2:
+        st.divider()
+        
+        with st.container(border=True):
+            st.warning("""
+            🔒 **私聊功能说明:**
+            
+            1. **秘密对话** - 只与选定的AI进行私聊
+            2. **其他AI不知道内容** - 但他们可能会好奇你们在说什么
+            3. **可以询问** - 其他AI可以问私聊对象："你们在聊什么？"
+            4. **私聊对象可以选择分享或不分享**
+            5. **私聊历史是分开保存的**
+            """)
+        
+        agents = st.session_state.current_chat.get('agents', {})
+        if agents:
+            # 选择私聊对象
+            selected_agent = st.selectbox(
+                "选择私聊对象:",
+                options=list(agents.keys()),
+                format_func=lambda x: f"{agents[x]['avatar']} {x}",
+                key="private_agent_select"
+            )
+            
+            if selected_agent:
+                st.write(f"### 🔒 与 {agents[selected_agent]['avatar']} {selected_agent} 的私聊")
+                
+                # 初始化私聊历史
+                private_key = f"private_{selected_agent}"
+                if private_key not in st.session_state.current_chat['private_history']:
+                    st.session_state.current_chat['private_history'][private_key] = []
+                
+                private_history = st.session_state.current_chat['private_history'][private_key]
+                
+                # 显示私聊历史
+                if private_history:
+                    st.write("**私聊历史:**")
+                    for agent, avatar, message, timestamp in private_history:
+                        is_user = (agent == user_role)
+                        
+                        with st.chat_message("user" if is_user else "assistant", avatar=avatar):
+                            if is_user:
+                                st.markdown(f"**{agent} 🔒:** {message}")
+                            else:
+                                st.markdown(f"**{avatar} {agent} 🔒:**")
+                                st.markdown(f"{message}")
+                            st.caption(f"{timestamp} 🔒")
                 else:
-                    # 对于AI角色，突出显示
-                    st.markdown(f"**{avatar} {agent}:**")
-                    st.markdown(f"{message}")
-                st.caption(timestamp)
-    else:
-        st.info(f"💡 点击'开始介绍'让AI角色向{user_role}自我介绍，然后开始对话！")
+                    st.info(f"💬 还没有与 {selected_agent} 的私聊记录。开始秘密对话吧！")
+                
+                # 私聊输入
+                st.divider()
+                private_input = st.text_area(
+                    f"私信给 {selected_agent}:",
+                    height=80,
+                    placeholder=f"悄悄告诉 {selected_agent}...",
+                    key=f"private_input_{selected_agent}"
+                )
+                
+                col1, col2 = st.columns(2)
+                with col1:
+                    if st.button("📩 发送私信", type="primary", use_container_width=True, key=f"send_private_{selected_agent}"):
+                        if private_input:
+                            # 添加到私聊历史
+                            timestamp = datetime.now().strftime('%H:%M:%S')
+                            private_history.append((user_role, "👤", private_input, timestamp))
+                            
+                            # 获取AI的私聊回应
+                            agent_data = agents[selected_agent]
+                            
+                            # 构建私聊历史记录
+                            history_messages = []
+                            for h_agent, h_avatar, h_msg, h_time in private_history[-5:]:
+                                role = "user" if h_agent == user_role else "assistant"
+                                history_messages.append({"role": role, "content": f"{h_agent}: {h_msg}"})
+                            
+                            # 请求AI私聊回应
+                            messages = [
+                                {"role": "system", "content": agent_data['system_prompt'] + "\n\n重要：这是私聊！只有你能看到这条消息。请小声、秘密地回应。"},
+                                *history_messages,
+                                {"role": "user", "content": f"{user_role}悄悄对你说：'{private_input}'。请小声、秘密地回应。这是我们的私聊！🤫"}
+                            ]
+                            
+                            response = client.chat.completions.create(
+                                model="deepseek-chat",
+                                messages=messages,
+                                temperature=0.7,
+                                max_tokens=250
+                            )
+                            
+                            message = response.choices[0].message.content
+                            timestamp = datetime.now().strftime('%H:%M:%S')
+                            private_history.append((selected_agent, agent_data['avatar'], message, timestamp))
+                            
+                            # 保存
+                            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+                            st.rerun()
+                
+                with col2:
+                    if st.button("🔄 请求私聊回应", use_container_width=True, key=f"request_private_{selected_agent}"):
+                        if private_history:
+                            # AI主动发起私聊
+                            agent_data = agents[selected_agent]
+                            
+                            messages = [
+                                {"role": "system", "content": agent_data['system_prompt'] + "\n\n重要：这是私聊！你想对用户说什么秘密的话？"},
+                                {"role": "user", "content": f"你想对{user_role}说什么秘密的话？这是私聊。🤐"}
+                            ]
+                            
+                            response = client.chat.completions.create(
+                                model="deepseek-chat",
+                                messages=messages,
+                                temperature=0.8,
+                                max_tokens=200
+                            )
+                            
+                            message = response.choices[0].message.content
+                            timestamp = datetime.now().strftime('%H:%M:%S')
+                            private_history.append((selected_agent, agent_data['avatar'], message, timestamp))
+                            
+                            # 保存
+                            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+                            st.rerun()
+                
+                # 其他AI可能会好奇
+                st.divider()
+                if st.button("🤔 其他AI好奇私聊内容", use_container_width=True, key=f"curious_ai"):
+                    # 随机选择一个其他AI
+                    other_agents = [name for name in agents.keys() if name != selected_agent]
+                    if other_agents:
+                        import random
+                        curious_agent = random.choice(other_agents)
+                        agent_data = agents[curious_agent]
+                        
+                        # 构建好奇的询问
+                        messages = [
+                            {"role": "system", "content": agent_data['system_prompt'] + "\n\n你注意到用户在和" + selected_agent + "私聊。你很好奇他们在说什么。"},
+                            {"role": "user", "content": f"你看到{user_role}和{selected_agent}在私聊。你很好奇，想问他们在说什么。你会怎么问？"}
+                        ]
+                        
+                        response = client.chat.completions.create(
+                            model="deepseek-chat",
+                            messages=messages,
+                            temperature=0.7,
+                            max_tokens=150
+                        )
+                        
+                        question = response.choices[0].message.content
+                        
+                        # 添加到公共聊天历史
+                        timestamp = datetime.now().strftime('%H:%M:%S')
+                        chat_history.append((curious_agent, agent_data['avatar'], question, timestamp, False))
+                        
+                        # 被问的AI可以选择回应
+                        messages2 = [
+                            {"role": "system", "content": agents[selected_agent]['system_prompt'] + f"\n\n{curious_agent}问你和{user_role}在私聊什么。你可以选择分享或不分享。"},
+                            {"role": "user", "content": f"{curious_agent}问你：'{question}'。你会怎么回应？"}
+                        ]
+                        
+                        response2 = client.chat.completions.create(
+                            model="deepseek-chat",
+                            messages=messages2,
+                            temperature=0.7,
+                            max_tokens=200
+                        )
+                        
+                        answer = response2.choices[0].message.content
+                        chat_history.append((selected_agent, agents[selected_agent]['avatar'], answer, timestamp, False))
+                        
+                        # 保存
+                        st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+                        st.rerun()
+        else:
+            st.info("🤷‍♂️ 还没有AI参与者可以私聊。先创建一些AI角色吧！")
     
-    # 对话管理
+    # ================== 对话管理按钮 ==================
     st.divider()
+    st.subheader("⚙️ 对话管理")
     
-    col1, col2, col3 = st.columns(3)
+    col1, col2, col3, col4 = st.columns(4)
     
     with col1:
-        if st.button("👋 开始介绍", use_container_width=True):
+        if st.button("👋 开始介绍", use_container_width=True, key="start_intro"):
             # 让每个AI角色向用户自我介绍
             agents = st.session_state.current_chat['agents']
             
@@ -722,120 +985,81 @@ else:
                     model="deepseek-chat",
                     messages=[
                         {"role": "system", "content": agents[agent_name]['system_prompt']},
-                        {"role": "user", "content": f"场景开始。{user_role}在场。向{user_role}介绍你自己并开始互动。"}
+                        {"role": "user", "content": f"场景开始。{user_role}在场。向{user_role}友好地介绍你自己！😊"}
                     ],
-                    temperature=0.8,
+                    temperature=0.9,  # 提高温度让介绍更有趣
                     max_tokens=200
                 )
                 
                 message = response.choices[0].message.content
                 timestamp = datetime.now().strftime('%H:%M:%S')
                 
-                chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp))
+                chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp, False))
             
             # 保存
             st.session_state.chat_manager.save_chat(st.session_state.current_chat)
             st.rerun()
     
     with col2:
-        if st.button("🔁 请求回应", use_container_width=True):
-            # 用户没有输入新消息，但想获取AI的回应
-            if chat_history:
-                agents = st.session_state.current_chat['agents']
+        if st.button("🎭 AI互动", use_container_width=True, key="ai_interact"):
+            # AI之间基于场景的互动（但仍然通过用户）
+            agents = st.session_state.current_chat['agents']
+            
+            if len(agents) >= 2:
+                import random
+                agent1, agent2 = random.sample(list(agents.keys()), 2)
                 
-                for agent_name in agents.keys():
-                    # 获取最近的对话历史
-                    recent_history = []
-                    for h_agent, h_avatar, h_msg, h_time in chat_history[-5:]:  # 最后5条消息
-                        role = "user" if h_agent == user_role else "assistant"
-                        recent_history.append({"role": role, "content": f"{h_agent}: {h_msg}"})
-                    
-                    # 请求AI回应最近的对话
-                    messages = [
-                        {"role": "system", "content": agents[agent_name]['system_prompt']},
-                        *recent_history,
-                        {"role": "user", "content": f"基于最近的对话，{agent_name}，你想对{user_role}说什么？"}
-                    ]
-                    
-                    response = client.chat.completions.create(
-                        model="deepseek-chat",
-                        messages=messages,
-                        temperature=0.7,
-                        max_tokens=250
-                    )
-                    
-                    message = response.choices[0].message.content
-                    timestamp = datetime.now().strftime('%H:%M:%S')
-                    
-                    chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp))
+                # 让agent1对用户说关于agent2的话
+                messages1 = [
+                    {"role": "system", "content": agents[agent1]['system_prompt']},
+                    {"role": "user", "content": f"你想对{user_role}说关于{agent2}的什么话？保持友好有趣！🎉"}
+                ]
+                
+                response1 = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=messages1,
+                    temperature=0.8,
+                    max_tokens=150
+                )
+                
+                message1 = response1.choices[0].message.content
+                timestamp = datetime.now().strftime('%H:%M:%S')
+                chat_history.append((agent1, agents[agent1]['avatar'], message1, timestamp, False))
+                
+                # 让agent2回应（通过用户）
+                messages2 = [
+                    {"role": "system", "content": agents[agent2]['system_prompt']},
+                    {"role": "user", "content": f"{agent1}刚刚说：'{message1}'。{user_role}想听听你的看法！😊"}
+                ]
+                
+                response2 = client.chat.completions.create(
+                    model="deepseek-chat",
+                    messages=messages2,
+                    temperature=0.8,
+                    max_tokens=150
+                )
+                
+                message2 = response2.choices[0].message.content
+                chat_history.append((agent2, agents[agent2]['avatar'], message2, timestamp, False))
                 
                 # 保存
                 st.session_state.chat_manager.save_chat(st.session_state.current_chat)
                 st.rerun()
-            else:
-                st.warning("请先开始对话！")
     
     with col3:
-        if st.button("🗑️ 清除历史", use_container_width=True):
+        if st.button("🗑️ 清除公共历史", use_container_width=True, key="clear_public"):
             st.session_state.current_chat['chat_history'] = []
             st.session_state.chat_manager.save_chat(st.session_state.current_chat)
             st.rerun()
     
-    # 消息输入
-    st.divider()
-    st.subheader(f"🎤 {user_role}的消息")
-
-    user_input = st.text_area(f"输入{user_role}的消息:", height=100, placeholder=f"作为{user_role}，你会说什么？")
-    
-    # 发送消息
-    if user_input and st.button("📤 发送消息", type="primary", use_container_width=True):
-        # 添加用户消息
-        timestamp = datetime.now().strftime('%H:%M:%S')
-        chat_history.append((user_role, "👤", user_input, timestamp))
-        
-        # 每个AI代理响应（集体响应）
-        agents = st.session_state.current_chat['agents']
-        
-        for agent_name in agents.keys():
-            # 构建历史记录（只关注用户和当前AI的互动）
-            history_messages = []
-            
-            # 包括用户的消息
-            history_messages.append({"role": "user", "content": f"{user_role}: {user_input}"})
-            
-            # 可能包括最近的其他AI回应作为上下文
-            for h_agent, h_avatar, h_msg, h_time in chat_history[-4:-1]:  # 不包括最新的用户消息
-                if h_agent == agent_name:
-                    history_messages.append({"role": "assistant", "content": f"{h_agent}: {h_msg}"})
-                elif h_agent == user_role:
-                    history_messages.append({"role": "user", "content": f"{h_agent}: {h_msg}"})
-            
-            # 请求AI回应
-            messages = [
-                {"role": "system", "content": agents[agent_name]['system_prompt']},
-                *history_messages,
-                {"role": "user", "content": f"{user_role}刚刚说了：'{user_input}'。{agent_name}，你会如何回应{user_role}？"}
-            ]
-            
-            response = client.chat.completions.create(
-                model="deepseek-chat",
-                messages=messages,
-                temperature=0.7,
-                max_tokens=300
-            )
-            
-            message = response.choices[0].message.content
-            timestamp = datetime.now().strftime('%H:%M:%S')
-            
-            chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp))
-        
-        # 保存
-        st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-        
-        st.rerun()
+    with col4:
+        if st.button("🔥 清除所有私聊", use_container_width=True, key="clear_private"):
+            st.session_state.current_chat['private_history'] = {}
+            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+            st.rerun()
     
     # 自动保存提示
-    if chat_history:
+    if chat_history or st.session_state.current_chat['private_history']:
         st.caption(f"💾 自动保存: {datetime.now().strftime('%H:%M:%S')}")
 
 # ================== 页脚 ==================
@@ -843,7 +1067,9 @@ st.divider()
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.caption(f"💬 消息数: {len(st.session_state.current_chat.get('chat_history', []))}")
+    public_count = len(st.session_state.current_chat.get('chat_history', []))
+    private_count = sum(len(h) for h in st.session_state.current_chat.get('private_history', {}).values())
+    st.caption(f"💬 消息数: {public_count} 公共 + {private_count} 私聊")
 
 with col2:
     st.caption(f"🤖 AI参与者数: {len(st.session_state.current_chat.get('agents', {}))}")
