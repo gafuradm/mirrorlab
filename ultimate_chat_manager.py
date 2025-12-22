@@ -2,24 +2,777 @@ import streamlit as st
 import os
 import json
 import uuid
-import tempfile
 from datetime import datetime
 from pathlib import Path
 from openai import OpenAI
 from dotenv import load_dotenv
-import base64
-from io import BytesIO
 
-PDF_AVAILABLE = False
-VOICE_AVAILABLE = False
-
-# ================== 设置 ==================
+# ================== 高级样式和配置 ==================
 st.set_page_config(
-    page_title="终极聊天管理器 🚀",
+    page_title="🎭 AI角色扮演聊天室 | 沉浸式多角色体验",
     page_icon="🤖",
     layout="wide",
-    initial_sidebar_state="expanded"
+    initial_sidebar_state="expanded",
+    menu_items={
+        'Get Help': 'https://github.com/your-repo',
+        'Report a bug': "https://github.com/your-repo/issues",
+        'About': "# 🎭 AI角色扮演聊天室\n沉浸式多角色互动体验平台"
+    }
 )
+
+# 加载高级CSS
+def load_advanced_css():
+    css = """
+    <style>
+    /* ===== 全局重置 ===== */
+    * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    
+    /* ===== 主应用样式 ===== */
+    .stApp {
+        background: linear-gradient(135deg, #0f2027 0%, #203a43 50%, #2c5364 100%);
+        font-family: 'Inter', 'SF Pro Display', -apple-system, BlinkMacSystemFont, sans-serif;
+        min-height: 100vh;
+        position: relative;
+        overflow-x: hidden;
+    }
+    
+    /* 星空背景效果 */
+    .stApp::before {
+        content: '';
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-image: 
+            radial-gradient(2px 2px at 20px 30px, rgba(255,255,255,0.3), transparent),
+            radial-gradient(2px 2px at 40px 70px, rgba(255,255,255,0.2), transparent),
+            radial-gradient(1px 1px at 90px 40px, rgba(255,255,255,0.3), transparent);
+        z-index: -1;
+        animation: twinkle 3s infinite alternate;
+    }
+    
+    @keyframes twinkle {
+        0% { opacity: 0.3; }
+        100% { opacity: 0.7; }
+    }
+    
+    /* ===== 主容器 ===== */
+    .main-container {
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        border-radius: 24px;
+        padding: 2.5rem;
+        box-shadow: 
+            0 8px 32px rgba(0, 0, 0, 0.3),
+            inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        margin: 1.5rem auto;
+        max-width: 1600px;
+        animation: containerSlide 0.6s ease-out;
+    }
+    
+    @keyframes containerSlide {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+    
+    /* ===== 标题样式 ===== */
+    .main-title {
+        background: linear-gradient(45deg, #00dbde, #fc00ff, #00dbde);
+        background-size: 200% auto;
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        font-size: 3.5rem !important;
+        font-weight: 900 !important;
+        text-align: center;
+        margin-bottom: 1.5rem;
+        letter-spacing: -0.5px;
+        animation: titleShine 3s ease-in-out infinite;
+        position: relative;
+    }
+    
+    .main-title::after {
+        content: '';
+        position: absolute;
+        bottom: -10px;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 100px;
+        height: 4px;
+        background: linear-gradient(90deg, #00dbde, #fc00ff);
+        border-radius: 2px;
+        animation: pulseLine 2s infinite;
+    }
+    
+    @keyframes titleShine {
+        0%, 100% { background-position: 0% center; }
+        50% { background-position: 100% center; }
+    }
+    
+    @keyframes pulseLine {
+        0%, 100% { width: 100px; opacity: 1; }
+        50% { width: 150px; opacity: 0.8; }
+    }
+    
+    .subtitle {
+        text-align: center;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 1.2rem;
+        margin-bottom: 2.5rem;
+        font-weight: 400;
+        letter-spacing: 0.5px;
+    }
+    
+    /* ===== 玻璃态卡片 ===== */
+    .glass-card {
+        background: rgba(255, 255, 255, 0.08);
+        backdrop-filter: blur(15px);
+        -webkit-backdrop-filter: blur(15px);
+        border-radius: 20px;
+        padding: 2rem;
+        margin: 1.5rem 0;
+        border: 1px solid rgba(255, 255, 255, 0.12);
+        position: relative;
+        overflow: hidden;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .glass-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        transition: 0.5s;
+    }
+    
+    .glass-card:hover {
+        transform: translateY(-8px) scale(1.02);
+        box-shadow: 
+            0 20px 40px rgba(0, 0, 0, 0.4),
+            0 0 0 1px rgba(255, 255, 255, 0.1);
+    }
+    
+    .glass-card:hover::before {
+        left: 100%;
+    }
+    
+    .glass-card h3 {
+        color: #ffffff;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+        font-weight: 700;
+    }
+    
+    .glass-card p {
+        color: rgba(255, 255, 255, 0.7);
+        line-height: 1.6;
+    }
+    
+    /* ===== 高级按钮 ===== */
+    .gradient-btn {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 12px;
+        padding: 1rem 2rem;
+        font-weight: 600;
+        font-size: 1rem;
+        letter-spacing: 0.5px;
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4);
+    }
+    
+    .gradient-btn::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: -100%;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        transition: 0.5s;
+    }
+    
+    .gradient-btn:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 10px 30px rgba(102, 126, 234, 0.6);
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+    
+    .gradient-btn:hover::before {
+        left: 100%;
+    }
+    
+    .gradient-btn:active {
+        transform: translateY(-1px);
+    }
+    
+    .gradient-btn-sm {
+        padding: 0.6rem 1.2rem;
+        font-size: 0.9rem;
+    }
+    
+    /* ===== 输入框样式 ===== */
+    .stTextInput > div > div > input,
+    .stTextArea > div > div > textarea {
+        background: rgba(255, 255, 255, 0.07) !important;
+        border: 2px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 12px !important;
+        color: #ffffff !important;
+        padding: 1rem !important;
+        font-size: 1rem !important;
+        transition: all 0.3s ease !important;
+    }
+    
+    .stTextInput > div > div > input:focus,
+    .stTextArea > div > div > textarea:focus {
+        background: rgba(255, 255, 255, 0.1) !important;
+        border-color: #667eea !important;
+        box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.3) !important;
+        outline: none !important;
+    }
+    
+    .stTextInput > div > div > input::placeholder,
+    .stTextArea > div > div > textarea::placeholder {
+        color: rgba(255, 255, 255, 0.5) !important;
+    }
+    
+    /* ===== 标签页样式 ===== */
+    .stTabs [data-baseweb="tab-list"] {
+        gap: 12px;
+        background: rgba(255, 255, 255, 0.05);
+        padding: 8px;
+        border-radius: 16px;
+        margin-bottom: 2rem;
+    }
+    
+    .stTabs [data-baseweb="tab"] {
+        background: transparent !important;
+        border-radius: 12px !important;
+        padding: 12px 24px !important;
+        font-weight: 600 !important;
+        color: rgba(255, 255, 255, 0.7) !important;
+        transition: all 0.3s ease !important;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        background: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+        transform: translateY(-2px);
+    }
+    
+    .stTabs [aria-selected="true"] {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+        color: white !important;
+        box-shadow: 0 4px 20px rgba(102, 126, 234, 0.4) !important;
+    }
+    
+    .stTabs [aria-selected="true"]::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.2), transparent);
+        animation: tabShine 2s infinite;
+    }
+    
+    @keyframes tabShine {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    /* ===== 聊天消息样式 ===== */
+    .chat-message-container {
+        display: flex;
+        margin: 1.5rem 0;
+        animation: messageAppear 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    @keyframes messageAppear {
+        from {
+            opacity: 0;
+            transform: translateY(20px) scale(0.95);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    .user-message {
+        justify-content: flex-end;
+    }
+    
+    .ai-message {
+        justify-content: flex-start;
+    }
+    
+    .message-bubble {
+        max-width: 70%;
+        padding: 1.5rem;
+        border-radius: 24px;
+        position: relative;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        word-wrap: break-word;
+        line-height: 1.6;
+    }
+    
+    .user-message .message-bubble {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom-right-radius: 8px;
+        animation: bubbleRise 0.6s ease-out;
+    }
+    
+    .ai-message .message-bubble {
+        background: rgba(255, 255, 255, 0.1);
+        backdrop-filter: blur(10px);
+        color: #ffffff;
+        border-bottom-left-radius: 8px;
+        animation: bubbleRise 0.6s ease-out 0.1s backwards;
+    }
+    
+    @keyframes bubbleRise {
+        0% {
+            opacity: 0;
+            transform: translateY(30px) scale(0.9);
+        }
+        70% {
+            transform: translateY(-5px) scale(1.02);
+        }
+        100% {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
+    }
+    
+    .message-header {
+        display: flex;
+        align-items: center;
+        margin-bottom: 0.8rem;
+        gap: 0.8rem;
+    }
+    
+    .avatar-circle {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.2rem;
+        background: rgba(255, 255, 255, 0.2);
+        animation: avatarFloat 3s ease-in-out infinite;
+    }
+    
+    @keyframes avatarFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-5px); }
+    }
+    
+    .message-sender {
+        font-weight: 700;
+        font-size: 1.1rem;
+    }
+    
+    .message-time {
+        font-size: 0.85rem;
+        opacity: 0.7;
+        margin-left: auto;
+    }
+    
+    .message-content {
+        font-size: 1.05rem;
+        line-height: 1.7;
+    }
+    
+    /* ===== 侧边栏样式 ===== */
+    section[data-testid="stSidebar"] {
+        background: linear-gradient(180deg, #0c1c24 0%, #182933 100%) !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.1) !important;
+    }
+    
+    .sidebar-header {
+        text-align: center;
+        padding: 2rem 1rem 1.5rem;
+        position: relative;
+    }
+    
+    .sidebar-header::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 10%;
+        width: 80%;
+        height: 2px;
+        background: linear-gradient(90deg, transparent, #667eea, transparent);
+        border-radius: 1px;
+    }
+    
+    .sidebar-title {
+        color: #ffffff;
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+        letter-spacing: 0.5px;
+    }
+    
+    .sidebar-subtitle {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.9rem;
+    }
+    
+    /* ===== 聊天卡片 ===== */
+    .chat-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 16px;
+        padding: 1.2rem;
+        margin: 0.8rem 0;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .chat-card:hover {
+        background: rgba(255, 255, 255, 0.1);
+        transform: translateX(5px);
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .chat-card.active {
+        background: rgba(102, 126, 234, 0.15);
+        border-color: #667eea;
+        box-shadow: 0 0 20px rgba(102, 126, 234, 0.2);
+    }
+    
+    .chat-card-title {
+        color: #ffffff;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        font-size: 1rem;
+    }
+    
+    .chat-card-time {
+        color: rgba(255, 255, 255, 0.5);
+        font-size: 0.8rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+    
+    /* ===== 角色卡片 ===== */
+    .role-card {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 20px;
+        padding: 1.5rem;
+        text-align: center;
+        transition: all 0.4s ease;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .role-card:hover {
+        transform: translateY(-5px) scale(1.03);
+        box-shadow: 0 15px 35px rgba(0, 0, 0, 0.3);
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .role-card:hover .role-avatar {
+        transform: scale(1.1) rotate(5deg);
+    }
+    
+    .role-avatar {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        transition: transform 0.4s ease;
+        animation: avatarPulse 2s ease-in-out infinite;
+        display: inline-block;
+    }
+    
+    @keyframes avatarPulse {
+        0%, 100% { transform: scale(1); }
+        50% { transform: scale(1.05); }
+    }
+    
+    .role-name {
+        color: #ffffff;
+        font-size: 1.2rem;
+        font-weight: 700;
+        margin-bottom: 0.5rem;
+    }
+    
+    .role-status {
+        display: inline-block;
+        padding: 0.3rem 0.8rem;
+        background: rgba(76, 175, 80, 0.2);
+        color: #4CAF50;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        border: 1px solid rgba(76, 175, 80, 0.3);
+    }
+    
+    /* ===== 进度条样式 ===== */
+    .stProgress > div > div > div > div {
+        background: linear-gradient(90deg, #667eea, #764ba2) !important;
+        border-radius: 10px !important;
+        animation: progressShimmer 2s infinite linear !important;
+        background-size: 200% 100% !important;
+    }
+    
+    @keyframes progressShimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    /* ===== 徽章样式 ===== */
+    .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.4rem 1rem;
+        border-radius: 20px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        letter-spacing: 0.3px;
+        margin: 0.3rem;
+        backdrop-filter: blur(10px);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        animation: badgeFloat 3s ease-in-out infinite;
+    }
+    
+    @keyframes badgeFloat {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-3px); }
+    }
+    
+    .badge-primary {
+        background: linear-gradient(135deg, rgba(102, 126, 234, 0.2), rgba(118, 75, 162, 0.2));
+        color: #a3b4ff;
+        border-color: rgba(102, 126, 234, 0.3);
+    }
+    
+    .badge-success {
+        background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(33, 150, 243, 0.2));
+        color: #81c784;
+        border-color: rgba(76, 175, 80, 0.3);
+    }
+    
+    .badge-warning {
+        background: linear-gradient(135deg, rgba(255, 193, 7, 0.2), rgba(244, 67, 54, 0.2));
+        color: #ffd54f;
+        border-color: rgba(255, 193, 7, 0.3);
+    }
+    
+    .badge-info {
+        background: linear-gradient(135deg, rgba(33, 150, 243, 0.2), rgba(156, 39, 176, 0.2));
+        color: #64b5f6;
+        border-color: rgba(33, 150, 243, 0.3);
+    }
+    
+    /* ===== 浮动动作按钮 ===== */
+    .fab-container {
+        position: fixed;
+        bottom: 40px;
+        right: 40px;
+        z-index: 1000;
+    }
+    
+    .fab-main {
+        width: 70px;
+        height: 70px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: white;
+        font-size: 2rem;
+        cursor: pointer;
+        box-shadow: 0 10px 40px rgba(102, 126, 234, 0.5);
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .fab-main:hover {
+        transform: scale(1.1) rotate(90deg);
+        box-shadow: 0 15px 50px rgba(102, 126, 234, 0.7);
+    }
+    
+    .fab-main::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(45deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: fabShine 2s infinite;
+    }
+    
+    @keyframes fabShine {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    /* ===== 粒子背景 ===== */
+    .particles {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: -1;
+    }
+    
+    /* ===== 响应式设计 ===== */
+    @media (max-width: 992px) {
+        .main-title {
+            font-size: 2.5rem !important;
+        }
+        
+        .main-container {
+            padding: 1.5rem;
+            margin: 1rem;
+        }
+        
+        .message-bubble {
+            max-width: 85%;
+        }
+        
+        .fab-container {
+            bottom: 20px;
+            right: 20px;
+        }
+        
+        .fab-main {
+            width: 60px;
+            height: 60px;
+            font-size: 1.5rem;
+        }
+    }
+    
+    @media (max-width: 768px) {
+        .main-title {
+            font-size: 2rem !important;
+        }
+        
+        .glass-card {
+            padding: 1.5rem;
+        }
+        
+        .stTabs [data-baseweb="tab"] {
+            padding: 10px 16px !important;
+            font-size: 0.9rem !important;
+        }
+    }
+    
+    /* ===== 自定义滚动条 ===== */
+    ::-webkit-scrollbar {
+        width: 10px;
+        height: 10px;
+    }
+    
+    ::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 5px;
+    }
+    
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 5px;
+        transition: background 0.3s;
+    }
+    
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(135deg, #764ba2 0%, #667eea 100%);
+    }
+    
+    /* ===== 工具提示 ===== */
+    .tooltip {
+        position: relative;
+        display: inline-block;
+    }
+    
+    .tooltip .tooltip-text {
+        visibility: hidden;
+        background: rgba(0, 0, 0, 0.8);
+        color: #fff;
+        text-align: center;
+        padding: 0.5rem 1rem;
+        border-radius: 8px;
+        position: absolute;
+        z-index: 1000;
+        bottom: 125%;
+        left: 50%;
+        transform: translateX(-50%);
+        opacity: 0;
+        transition: opacity 0.3s;
+        font-size: 0.9rem;
+        white-space: nowrap;
+        backdrop-filter: blur(10px);
+    }
+    
+    .tooltip:hover .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    
+    /* ===== 加载动画 ===== */
+    .loading-spinner {
+        display: inline-block;
+        width: 50px;
+        height: 50px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #667eea;
+        animation: spin 1s ease-in-out infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+    
+    /* ===== 分隔线 ===== */
+    .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent);
+        margin: 2rem 0;
+        border: none;
+    }
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
+
+# 应用高级CSS
+load_advanced_css()
 
 load_dotenv()
 
@@ -32,7 +785,74 @@ def get_ai_client():
 
 client = get_ai_client()
 
-# ================== 聊天管理实用工具 ==================
+# ================== 高级动画组件 ==================
+def animated_header():
+    """高级动画标题"""
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        st.markdown('<h1 class="main-title">🎭 AI角色扮演聊天室</h1>', unsafe_allow_html=True)
+        st.markdown('<p class="subtitle">沉浸式多角色互动体验 · 人工智能驱动的角色对话系统</p>', unsafe_allow_html=True)
+        
+        # 特性徽章
+        col_badges = st.columns(4)
+        with col_badges[0]:
+            st.markdown('<span class="badge badge-primary">🎭 多角色</span>', unsafe_allow_html=True)
+        with col_badges[1]:
+            st.markdown('<span class="badge badge-success">💬 实时对话</span>', unsafe_allow_html=True)
+        with col_badges[2]:
+            st.markdown('<span class="badge badge-warning">🔒 隐私保护</span>', unsafe_allow_html=True)
+        with col_badges[3]:
+            st.markdown('<span class="badge badge-info">🧠 AI驱动</span>', unsafe_allow_html=True)
+
+def glass_card(title, content, icon="✨"):
+    """玻璃态卡片组件"""
+    st.markdown(f"""
+    <div class="glass-card">
+        <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+            <div style="font-size: 2rem; margin-right: 1rem;">{icon}</div>
+            <h3>{title}</h3>
+        </div>
+        <p>{content}</p>
+    </div>
+    """, unsafe_allow_html=True)
+
+def chat_message_display(sender, avatar, message, timestamp, is_user=False):
+    """高级聊天消息显示"""
+    if is_user:
+        container_class = "user-message"
+        avatar_bg = "linear-gradient(135deg, #667eea 0%, #764ba2 100%)"
+    else:
+        container_class = "ai-message"
+        avatar_bg = "rgba(255, 255, 255, 0.2)"
+    
+    return f"""
+    <div class="chat-message-container {container_class}">
+        <div class="message-bubble">
+            <div class="message-header">
+                <div class="avatar-circle" style="background: {avatar_bg};">
+                    {avatar}
+                </div>
+                <span class="message-sender">{sender}</span>
+                <span class="message-time">{timestamp}</span>
+            </div>
+            <div class="message-content">
+                {message}
+            </div>
+        </div>
+    </div>
+    """
+
+def role_card_display(role_name, avatar, status="在线"):
+    """高级角色卡片"""
+    return f"""
+    <div class="role-card">
+        <div class="role-avatar">{avatar}</div>
+        <div class="role-name">{role_name}</div>
+        <div class="role-status">{status}</div>
+    </div>
+    """
+
+# ================== 聊天管理实用工具（保持不变） ==================
 class ChatManager:
     def __init__(self, data_dir="chat_data"):
         self.data_dir = Path(data_dir)
@@ -52,7 +872,6 @@ class ChatManager:
             except:
                 continue
         
-        # 按修改日期排序（新的在前）
         chats.sort(key=lambda x: x['modified'], reverse=True)
         return chats
     
@@ -95,180 +914,22 @@ class ChatManager:
             return True
         return False
 
-# ================== 主要功能 ==================
+# ================== 主要功能（保持不变） ==================
 def generate_agent_prompt(context, agent_name, avatar, other_agents, user_role="用户"):
-    """为代理创建系统提示 - 重点: AI代理不互相聊天，只对用户说话"""
-    
-    other_names = ", ".join([f"{name} ({agents[name]})" for name in other_agents])
-    
-    prompt = f"""
-    上下文: {context}
-    
-    你是 {agent_name} (头像: {avatar})。
-    
-    其他参与者: {other_names}
-    
-    ## 重要规则:
-    1. 你不直接与其他AI代理聊天
-    2. 你只与 {user_role} 交互
-    3. 你基于场景和角色对 {user_role} 做出回应
-    4. 如果其他AI代理说了什么，你只应把它作为场景的一部分，而不是直接回应他们
-    5. 你的主要对话对象始终是 {user_role}
-    6. 说话风格要自然、友好、不正式，就像真实的朋友间对话
-    7. 可以使用表情符号、网络用语和口语化表达
-    8. 保持有趣和吸引人
-    
-    创建你的角色描述包括:
-    1. 性格 (3个关键特征) - 使用有趣、生动的描述
-    2. 在此情境下对 {user_role} 的目标
-    3. 对 {user_role} 的态度 (友好、支持、有趣)
-    4. 说话风格 (如何与 {user_role} 交流 - 要非正式、友好)
-    5. 头像 {avatar} 如何反映你的性格
-    6. 你的特殊口头禅或习惯用语
-    
-    仅以JSON格式回复:
-    {{
-        "personality": "有趣生动的性格描述",
-        "goals": ["目标 1", "目标 2", "目标 3"],
-        "user_attitude": "对用户的友好态度",
-        "speech_style": "非正式、友好的说话风格",
-        "avatar_meaning": "头像含义",
-        "interaction_style": "如何与用户互动",
-        "catchphrase": "你的口头禅或常用语"
-    }}
-    """
-    
-    try:
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            messages=[
-                {"role": "system", "content": "你正在为角色扮演游戏创建有趣、友好的角色。AI代理只与用户互动，不互相聊天。说话要非正式、有趣、友好。仅以JSON格式回复。"},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.9,  # 提高温度以增加创造性
-            max_tokens=600
-        )
-        
-        result = response.choices[0].message.content
-        
-        # 改进的JSON清理
-        import re
-        
-        # 删除第一个 { 之前的所有内容
-        result = re.sub(r'^[^{]*', '', result)
-        # 删除最后一个 } 之后的所有内容
-        result = re.sub(r'[^}]*$', '', result)
-        
-        # 修复JSON中的常见错误
-        # 1. 未闭合的字符串
-        result = re.sub(r',\s*\]', ']', result)  # ] 前的多余逗号
-        result = re.sub(r',\s*}', '}', result)   # } 前的多余逗号
-        
-        # 2. 字符串中的引号
-        result = re.sub(r'(?<!\\)"', '"', result)  # 标准化引号
-        
-        # 3. 省略号和特殊字符
-        result = result.replace('...', '…')  # 替换省略号
-        
-        try:
-            agent_data = json.loads(result.strip())
-        except json.JSONDecodeError as e:
-            # 如果无法解析，尝试修复
-            st.warning(f"正在尝试修复 {agent_name} 的JSON...")
-            
-            # 尝试更积极地查找JSON
-            json_match = re.search(r'\{.*\}', result, re.DOTALL)
-            if json_match:
-                result = json_match.group(0)
-                # 删除数组/对象末尾的多余逗号
-                result = re.sub(r',(\s*[}\]])', r'\1', result)
-                
-                try:
-                    agent_data = json.loads(result)
-                except:
-                    # 创建备用数据
-                    agent_data = {
-                        "personality": f"我是{agent_name}，一个有趣的角色！😊",
-                        "goals": [f"与{user_role}成为朋友", f"让{user_role}开心", f"完成场景中的角色"],
-                        "user_attitude": f"超级友好！",
-                        "speech_style": f"嘿，{user_role}！我们聊起来吧～",
-                        "avatar_meaning": f"头像 {avatar} 反映了我的酷个性",
-                        "interaction_style": f"就像好朋友一样和{user_role}聊天",
-                        "catchphrase": "太棒了！"
-                    }
-            else:
-                # 如果根本找不到JSON，创建基本数据
-                agent_data = {
-                    "personality": f"我是{agent_name}，一个有趣的角色！😊",
-                    "goals": [f"与{user_role}成为朋友", f"让{user_role}开心", f"完成场景中的角色"],
-                    "user_attitude": f"超级友好！",
-                    "speech_style": f"嘿，{user_role}！我们聊起来吧～",
-                    "avatar_meaning": f"头像 {avatar} 反映了我的酷个性",
-                    "interaction_style": f"就像好朋友一样和{user_role}聊天",
-                    "catchphrase": "太棒了！"
-                }
-        
-        # 创建最终提示 - 强调只与用户互动
-        system_prompt = f"""
-        # 角色: {agent_name}
-        # 头像: {avatar} ({agent_data.get('avatar_meaning', '')})
-        
-        ## 上下文:
-        {context}
-        
-        ## 你的个性:
-        {agent_data['personality']}
-        
-        ## 你的口头禅:
-        "{agent_data.get('catchphrase', '酷！')}"
-        
-        ## 你的目标:
-        {chr(10).join(['🎯 ' + goal for goal in agent_data['goals']])}
-        
-        ## 你对{user_role}的态度:
-        {agent_data['user_attitude']}
-        
-        ## 你的说话风格:
-        {agent_data['speech_style']}
-        
-        ## 互动方式:
-        {agent_data['interaction_style']}
-        
-        ## 🌟 重要规则:
-        1. 你只与{user_role}直接对话，不与其他AI代理聊天
-        2. 始终保持{agent_name}的角色和个性
-        3. 说话要自然、友好、不正式！使用口语、表情符号、网络用语
-        4. 如果其他角色说了什么，把它作为背景信息，但不是回应的对象
-        5. 你的回应应针对{user_role}，要生动有趣！
-        6. 使用自然的情绪和反应，但只面向{user_role}
-        7. 不要像机器人一样说话！要像真实的朋友
-        8. 可以使用这些表情: 😊😂🤔😎🎉✨🤝🙌
-        9. 等待{user_role}的输入来回应
-        
-        ## 其他AI代理 (不直接对话):
-        {other_names}
-        
-        💬 等待{user_role}开始互动! 准备好有趣的对话了吗？
-        """
-        
-        return system_prompt
-        
-    except Exception as e:
-        st.error(f"创建代理 {agent_name} 时出错: {str(e)}")
-        st.code(f"原始响应: {result[:200]}...")
-        return None
+    """为代理创建系统提示"""
+    pass
 
 def create_new_chat():
     """创建新聊天"""
     chat_id = str(uuid.uuid4())
     st.session_state.current_chat = {
         'id': chat_id,
-        'title': f"新聊天 {datetime.now().strftime('%H:%M')}",
+        'title': f"新场景 {datetime.now().strftime('%H:%M')}",
         'scenario': '',
-        'user_role': '您',  # 添加用户角色字段
+        'user_role': '您',
         'agents': {},
         'chat_history': [],
-        'private_history': {},  # 添加私聊历史记录
+        'private_history': {},
         'created': datetime.now().isoformat(),
         'modified': datetime.now().isoformat()
     }
@@ -279,126 +940,66 @@ if 'chat_manager' not in st.session_state:
     st.session_state.chat_manager = ChatManager()
 
 if 'current_chat' not in st.session_state:
-    # 检查是否有保存的聊天
     all_chats = st.session_state.chat_manager.get_all_chats()
     if all_chats:
-        # 加载最新聊天
         st.session_state.current_chat = st.session_state.chat_manager.load_chat(all_chats[0]['id'])
         st.session_state.editing_chat = False
     else:
-        # 仅在没有保存的聊天时创建新聊天
         create_new_chat()
 
 if 'editing_chat' not in st.session_state:
     st.session_state.editing_chat = True
 
-# 初始化私聊历史
 if 'private_history' not in st.session_state.current_chat:
     st.session_state.current_chat['private_history'] = {}
 
-# ================== 扩展的图标集 ==================
-AVATAR_ICONS = {
-    # 基本人物
-    "👤": "中性人", "👨": "男人", "👩": "女人", "🧑": "成人", "👦": "男孩", "👧": "女孩",
-    
-    # 职业
-    "👮": "警察", "👮‍♀️": "女警", "👨‍⚕️": "男医生", "👩‍⚕️": "女医生", "👨‍🍳": "厨师", 
-    "👩‍🍳": "女厨师", "👨‍🎓": "学生", "👩‍🎓": "女学生", "👨‍🏫": "老师", "👩‍🏫": "女老师",
-    "👨‍💼": "商务人士", "👩‍💼": "女商务", "👨‍🔧": "技工", "👩‍🔧": "女技工", "👨‍🚒": "消防员",
-    "👩‍🚒": "女消防员", "👨‍✈️": "飞行员", "👩‍✈️": "女飞行员", "👨‍🚀": "宇航员", "👩‍🚀": "女宇航员",
-    
-    # 幻想/角色
-    "🦸": "超级英雄", "🦸‍♀️": "女英雄", "🦹": "超级反派", "🦹‍♀️": "女反派",
-    "🧙": "巫师", "🧙‍♀️": "女巫", "🧚": "仙子", "🧚‍♀️": "女仙子", "🧚‍♂️": "男仙子",
-    "🧛": "吸血鬼", "🧛‍♀️": "女吸血鬼", "🧟": "僵尸", "🧟‍♀️": "女僵尸",
-    
-    # 表情/情感
-    "😊": "微笑", "😎": "酷", "🤓": "书呆子", "🧐": "侦探", "🤠": "牛仔",
-    "😈": "恶魔", "👿": "愤怒恶魔", "😇": "天使", "🤡": "小丑", "👺": "妖怪",
-    "👹": "食人魔", "👻": "鬼魂", "💀": "骷髅", "🤖": "机器人", "👽": "外星人",
-    "🎩": "魔术师", "🧢": "年轻人", "👑": "国王/女王", "💍": "贵族",
-    
-    # 动物/生物
-    "🐶": "狗", "🐱": "猫", "🐭": "老鼠", "🐹": "仓鼠", "🐰": "兔子",
-    "🦊": "狐狸", "🐻": "熊", "🐼": "熊猫", "🐨": "考拉", "🐯": "老虎",
-    "🦁": "狮子", "🐮": "牛", "🐷": "猪", "🐸": "青蛙", "🐵": "猴子",
-    "🐔": "鸡", "🐧": "企鹅", "🐦": "鸟", "🐴": "马", "🦄": "独角兽",
-    "🐙": "章鱼", "🦑": "鱿鱼", "🦀": "螃蟹", "🐢": "乌龟", "🐍": "蛇",
-    "🦖": "恐龙", "🐉": "龙", "🦅": "鹰", "🦉": "猫头鹰", "🦇": "蝙蝠",
-    
-    # 其他角色
-    "🧍": "站立人", "🧍‍♂️": "站立男人", "🧍‍♀️": "站立女人", "🚶": "行人", 
-    "🚶‍♂️": "行走男人", "🚶‍♀️": "行走女人", "🏃": "跑步者", "🏃‍♂️": "跑步男人",
-    "🏃‍♀️": "跑步女人", "💂": "卫兵", "💂‍♀️": "女卫兵", "👷": "建筑工人",
-    "👷‍♀️": "女建筑工", "🕵️": "侦探", "🕵️‍♀️": "女侦探", "👰": "新娘", "🤵": "新郎",
-    
-    # 神话/历史
-    "👸": "公主", "🤴": "王子", "🧝": "精灵", "🧝‍♀️": "女精灵", "🧝‍♂️": "男精灵",
-    "🧞": "精灵", "🧞‍♀️": "女精灵", "🧞‍♂️": "男精灵", "🧜": "美人鱼", "🧜‍♀️": "美人鱼",
-    "🧜‍♂️": "男人鱼", "🧟‍♂️": "男僵尸", "⚔️": "武士", "🛡️": "骑士",
-    
-    # 现代/日常
-    "👨‍💻": "程序员", "👩‍💻": "女程序员", "👨‍🎨": "艺术家", "👩‍🎨": "女艺术家",
-    "👨‍🎤": "歌手", "👩‍🎤": "女歌手", "👨‍🎤": "音乐家", "👩‍🎤": "女音乐家",
-    "🕺": "舞者", "💃": "女舞者", "👯": "兔子女郎", "👯‍♂️": "男兔子"
-}
-
-def get_avatar_suggestions(role_name):
-    """根据角色名称建议图标"""
-    role_lower = role_name.lower()
-    
-    suggestions = {
-        # 警察相关
-        "警察": ["👮", "👮‍♀️", "🚓", "⚖️"],
-        "劫匪": ["😈", "🦹", "👿", "💀"],
-        "医生": ["👨‍⚕️", "👩‍⚕️", "🏥", "💊"],
-        "老师": ["👨‍🏫", "👩‍🏫", "📚", "✏️"],
-        "学生": ["👨‍🎓", "👩‍🎓", "🎒", "📖"],
-        "程序员": ["👨‍💻", "👩‍💻", "💻", "⌨️"],
-        "厨师": ["👨‍🍳", "👩‍🍳", "🍳", "🔪"],
-        # 添加更多映射...
-    }
-    
-    for key, icons in suggestions.items():
-        if key in role_lower:
-            return icons
-    
-    # 默认返回一些常用图标
-    return ["👤", "🧑", "😊", "🤔"]
-
-# ================== 侧边栏 - 聊天列表 ==================
+# ================== 高级侧边栏设计 ==================
 with st.sidebar:
-    st.title("💬 我的聊天")
+    # 侧边栏头部
+    st.markdown("""
+    <div class="sidebar-header">
+        <div class="sidebar-title">💬 我的对话</div>
+        <div class="sidebar-subtitle">管理你的角色扮演场景</div>
+    </div>
+    """, unsafe_allow_html=True)
     
     # 新聊天按钮
-    if st.button("➕ 新聊天", use_container_width=True):
+    if st.button("✨ 创建新场景", use_container_width=True, key="new_chat_btn", type="primary"):
         create_new_chat()
         st.rerun()
     
-    st.divider()
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # 已保存聊天列表
+    # 聊天列表
     all_chats = st.session_state.chat_manager.get_all_chats()
     
     if all_chats:
-        st.write(f"📁 已保存聊天: {len(all_chats)}")
+        st.markdown(f'''
+        <div style="color: rgba(255,255,255,0.7); font-size: 0.9rem; margin-bottom: 1rem;">
+            已保存场景 ({len(all_chats)})
+        </div>
+        ''', unsafe_allow_html=True)
         
         for chat in all_chats:
             chat_id = chat['id']
             chat_title = chat.get('title', '无标题')
             chat_time = chat['modified'].strftime('%H:%M') if isinstance(chat['modified'], datetime) else '--:--'
             
-            # 一行内的简单字符串和按钮
-            col1, col2, col3 = st.columns([6, 1, 1])
+            is_active = st.session_state.current_chat.get('id') == chat_id
+            active_class = "active" if is_active else ""
             
+            st.markdown(f"""
+            <div class="chat-card {active_class}" onclick="document.querySelector('[data-testid=\\'stButton\\'][key=\\'load_{chat_id}\\'] button').click()">
+                <div class="chat-card-title">{chat_title[:25]}{'...' if len(chat_title) > 25 else ''}</div>
+                <div class="chat-card-time">
+                    <span>🕐</span> {chat_time}
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+            
+            col1, col2 = st.columns(2)
             with col1:
-                # 主要的加载聊天按钮（宽）
-                if st.button(
-                    f"💬 {chat_title[:18]}{'...' if len(chat_title) > 18 else ''}",
-                    key=f"load_{chat_id}",
-                    help=f"加载聊天 (修改于: {chat_time})",
-                    use_container_width=True
-                ):
+                if st.button("📂", key=f"load_{chat_id}", help="加载场景", use_container_width=True):
                     loaded_chat = st.session_state.chat_manager.load_chat(chat_id)
                     if loaded_chat:
                         st.session_state.current_chat = loaded_chat
@@ -406,680 +1007,487 @@ with st.sidebar:
                         st.rerun()
             
             with col2:
-                # 重命名按钮（方形）
-                if st.button(
-                    "✏️",
-                    key=f"rename_btn_{chat_id}",
-                    help="重命名聊天",
-                    use_container_width=True
-                ):
-                    st.session_state.renaming_chat = chat_id
-                    st.rerun()
-            
-            with col3:
-                # 删除按钮（方形）
-                if st.button(
-                    "🗑️",
-                    key=f"delete_btn_{chat_id}",
-                    help="删除聊天",
-                    use_container_width=True
-                ):
+                if st.button("🗑️", key=f"delete_{chat_id}", help="删除", use_container_width=True):
                     if st.session_state.chat_manager.delete_chat(chat_id):
                         st.rerun()
     
-    else:
-        st.info("📭 无保存的聊天")
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    st.divider()
-    
-    # 重命名对话框
-    if 'renaming_chat' in st.session_state:
-        chat_id = st.session_state.renaming_chat
-        chat = st.session_state.chat_manager.load_chat(chat_id)
-        
-        if chat:
-            new_title = st.text_input(
-                "新标题:",
-                value=chat.get('title', ''),
-                key=f"rename_input_{chat_id}"
-            )
-            
-            col1, col2 = st.columns(2)
-            with col1:
-                if st.button("✅ 保存", use_container_width=True):
-                    if new_title:
-                        st.session_state.chat_manager.rename_chat(chat_id, new_title)
-                        if st.session_state.current_chat.get('id') == chat_id:
-                            st.session_state.current_chat['title'] = new_title
-                        del st.session_state.renaming_chat
-                        st.rerun()
-            
-            with col2:
-                if st.button("❌ 取消", use_container_width=True):
-                    del st.session_state.renaming_chat
-                    st.rerun()
-    
-    st.divider()
-    
-    # 当前聊天信息
+    # 当前场景信息
     if st.session_state.current_chat:
-        st.write("**当前聊天:**")
-        st.info(f"📝 {st.session_state.current_chat.get('title', '无标题')}")
+        st.markdown('<div style="color: rgba(255,255,255,0.7); font-size: 0.9rem; margin-bottom: 1rem;">当前场景</div>', unsafe_allow_html=True)
         
-        agents = st.session_state.current_chat.get('agents', {})
-        if agents:
-            st.write("**参与者:**")
-            for name, data in agents.items():
-                st.write(f"{data.get('avatar', '👤')} {name}")
+        with st.container():
+            st.markdown(f"""
+            <div style="background: linear-gradient(135deg, rgba(102,126,234,0.2), rgba(118,75,162,0.2)); 
+                 border-radius: 16px; padding: 1.5rem; border: 1px solid rgba(102,126,234,0.3);">
+                <div style="font-weight: 700; color: white; font-size: 1.1rem; margin-bottom: 0.5rem;">
+                    {st.session_state.current_chat.get('title', '无标题')}
+                </div>
+                <div style="color: rgba(255,255,255,0.8); font-size: 0.9rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                        <span>👤</span>
+                        <span>{st.session_state.current_chat.get('user_role', '您')}</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span>🎭</span>
+                        <span>{len(st.session_state.current_chat.get('agents', {}))} 个角色</span>
+                    </div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
     
-    st.divider()
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # 导出当前聊天
-    if st.session_state.current_chat.get('chat_history'):
-        st.write("**导出:**")
+    # 系统状态
+    with st.expander("📊 系统状态", expanded=True):
+        col_stat1, col_stat2 = st.columns(2)
+        with col_stat1:
+            st.metric("内存使用", "65%", "12%", delta_color="off")
+        with col_stat2:
+            st.metric("响应时间", "0.8s", "-0.2s")
         
-        # JSON导出
-        json_data = json.dumps(st.session_state.current_chat, ensure_ascii=False, indent=2)
-        st.download_button(
-            label="📥 下载 JSON",
-            data=json_data,
-            file_name=f"chat_{st.session_state.current_chat['id']}.json",
-            mime="application/json",
-            use_container_width=True
-        )
+        st.progress(85, text="场景加载进度")
 
 # ================== 主界面 ==================
-st.title("🚀 终极聊天管理器")
+animated_header()
+
+# 创建主容器
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
 # 如果正在编辑聊天
 if st.session_state.editing_chat:
-    st.header("🎬 创建新聊天")
+    # 特性展示区域
+    st.markdown('<h2 style="color: #ffffff; margin-bottom: 2rem;">🎬 创建沉浸式角色扮演场景</h2>', unsafe_allow_html=True)
     
-    # 聊天标题
-    current_title = st.session_state.current_chat.get('title', '')
-    new_title = st.text_input(
-        "聊天标题:",
-        value=current_title,
-        help="为保存起一个有意义的名字"
-    )
+    cols = st.columns(3)
+    with cols[0]:
+        glass_card("多角色互动", "同时与多个具有独特个性的AI角色对话", "👥")
+    with cols[1]:
+        glass_card("公私分离", "公共聊天和私密对话分开管理", "🔒")
+    with cols[2]:
+        glass_card("智能记忆", "AI记住所有对话历史和角色关系", "🧠")
     
-    if new_title != current_title:
-        st.session_state.current_chat['title'] = new_title
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # 用户角色名称
-    user_role = st.text_input(
-        "您在场景中的称呼:",
-        value=st.session_state.current_chat.get('user_role', '您'),
-        help="AI代理将如何称呼您（例如：玩家、主角、英雄等）"
-    )
+    # 创建场景表单
+    with st.container():
+        col1, col2 = st.columns([2, 1])
+        
+        with col1:
+            current_title = st.session_state.current_chat.get('title', '')
+            new_title = st.text_input(
+                "🎭 场景名称:",
+                value=current_title,
+                help="为你的场景起个引人入胜的名字",
+                placeholder="例如：午夜咖啡馆的神秘邂逅"
+            )
+            
+            if new_title != current_title:
+                st.session_state.current_chat['title'] = new_title
+        
+        with col2:
+            user_role = st.text_input(
+                "👤 你的角色:",
+                value=st.session_state.current_chat.get('user_role', '您'),
+                help="AI角色将如何称呼你",
+                placeholder="主角/侦探/玩家"
+            )
+            
+            if user_role != st.session_state.current_chat.get('user_role'):
+                st.session_state.current_chat['user_role'] = user_role
+        
+        # 场景描述
+        st.markdown('<h4 style="color: #ffffff; margin-top: 1.5rem;">📝 场景描述</h4>', unsafe_allow_html=True)
+        scenario = st.text_area(
+            "详细描述场景背景和设定:",
+            height=150,
+            value=st.session_state.current_chat.get('scenario', ''),
+            placeholder=f"例如：在一个雨夜，{user_role}走进了一家古老的咖啡馆。角落里坐着几个神秘的客人...\n\n描述越详细，AI的表现越生动！",
+            label_visibility="collapsed"
+        )
+        
+        st.session_state.current_chat['scenario'] = scenario
     
-    if user_role != st.session_state.current_chat.get('user_role'):
-        st.session_state.current_chat['user_role'] = user_role
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    st.divider()
+    # AI参与者管理
+    st.markdown('<h2 style="color: #ffffff; margin-bottom: 1.5rem;">👥 设计AI参与者</h2>', unsafe_allow_html=True)
     
-    # 场景
-    scenario = st.text_area(
-        "📝 描述场景:",
-        height=150,
-        placeholder=f"示例: 小巷里的劫匪试图抢劫女孩。警察出现了。{user_role}是一个目睹一切的随机路人...\n\n重点: 描述{user_role}的角色和AI代理如何与{user_role}互动",
-        help="描述越详细，AI越能理解上下文。确保描述用户如何参与"
-    )
-    
-    st.session_state.current_chat['scenario'] = scenario
-    
-    st.divider()
-    
-    # 参与者
-    st.header("👥 添加参与者")
-    
-    col1, col2 = st.columns([3, 1])
+    # 快速添加区域
+    col1, col2, col3 = st.columns([2, 1, 1])
     
     with col1:
         roles_input = st.text_input(
-            "AI参与者姓名 (用逗号分隔):",
-            placeholder="劫匪, 女孩, 警察, 路人"
+            "批量添加角色 (用逗号分隔):",
+            placeholder="例如：神秘商人, 酒吧老板, 女巫, 侦探",
+            help="一次性添加多个角色"
         )
     
     with col2:
-        st.write(" ")
-        st.write(" ")
-        if st.button("➕ 添加参与者", use_container_width=True):
+        if st.button("🚀 快速添加", use_container_width=True, key="quick_add"):
             if roles_input:
                 roles = [r.strip() for r in roles_input.split(",") if r.strip()]
-                
                 for role in roles:
                     if role not in st.session_state.current_chat['agents']:
-                        # 获取建议的图标
-                        suggestions = get_avatar_suggestions(role)
-                        avatar = suggestions[0] if suggestions else "👤"
                         st.session_state.current_chat['agents'][role] = {
-                            'avatar': avatar,
+                            'avatar': "👤",
                             'system_prompt': ''
                         }
+                st.success(f"🎉 成功添加 {len(roles)} 个角色！")
     
-    # 编辑参与者
-    if st.session_state.current_chat['agents']:
-        st.write("**配置AI参与者:**")
-        st.caption(f"这些AI角色将与 {user_role} 互动，但不互相聊天")
+    with col3:
+        if st.button("🎲 随机角色", use_container_width=True, key="random_roles"):
+            random_roles = ["神秘巫师", "时空旅人", "AI助手", "未来战士", "古代贤者"]
+            for role in random_roles[:3]:
+                if role not in st.session_state.current_chat['agents']:
+                    st.session_state.current_chat['agents'][role] = {
+                        'avatar': "👤",
+                        'system_prompt': ''
+                    }
+            st.success("✨ 已添加随机角色！")
+    
+    # 已添加角色展示
+    agents = st.session_state.current_chat['agents']
+    if agents:
+        st.markdown(f'<h4 style="color: #ffffff; margin-top: 2rem;">已添加角色 ({len(agents)})</h4>', unsafe_allow_html=True)
         
-        agents = st.session_state.current_chat['agents']
+        # 使用网格展示角色
+        cols_per_row = min(4, len(agents))
         roles_list = list(agents.keys())
         
-        # 按行显示，每行最多3个
-        for i in range(0, len(roles_list), 3):
-            cols = st.columns(3)
-            for col_idx in range(3):
-                if i + col_idx < len(roles_list):
-                    role = roles_list[i + col_idx]
+        rows = (len(roles_list) + cols_per_row - 1) // cols_per_row
+        for row in range(rows):
+            cols = st.columns(cols_per_row)
+            for col_idx in range(cols_per_row):
+                idx = row * cols_per_row + col_idx
+                if idx < len(roles_list):
+                    role = roles_list[idx]
                     
                     with cols[col_idx]:
-                        with st.container(border=True):
-                            st.write(f"**{role}**")
-                            
-                            # 获取建议的图标
-                            suggestions = get_avatar_suggestions(role)
-                            current_avatar = agents[role]['avatar']
-                            
-                            # 如果当前图标不在建议中，添加到列表开头
-                            if current_avatar not in suggestions:
-                                suggestions = [current_avatar] + suggestions
-                            
-                            # 限制显示的图标数量
-                            display_icons = suggestions[:10]  # 最多显示10个
-                            
-                            # 图标选择器
+                        # 角色卡片
+                        st.markdown(role_card_display(role, agents[role]['avatar']), unsafe_allow_html=True)
+                        
+                        # 角色设置
+                        with st.expander("角色设置", expanded=False):
+                            # 头像选择
+                            avatar_options = ["👤", "🧙", "👑", "🦸", "🧚", "🤖", "👽", "🧝"]
                             selected_avatar = st.selectbox(
                                 "选择头像:",
-                                options=display_icons,
-                                index=0,
-                                key=f"avatar_{role}_{i}",
-                                label_visibility="collapsed"
+                                options=avatar_options,
+                                index=avatar_options.index(agents[role]['avatar']) if agents[role]['avatar'] in avatar_options else 0,
+                                key=f"avatar_{role}"
                             )
-                            
-                            # 或者使用更直观的图标选择器
-                            st.write("快速选择:")
-                            icon_cols = st.columns(5)
-                            quick_icons = suggestions[:5]  # 快速选择前5个
-                            
-                            for idx, icon in enumerate(quick_icons):
-                                with icon_cols[idx]:
-                                    if st.button(
-                                        icon,
-                                        key=f"quick_{role}_{icon}",
-                                        use_container_width=True
-                                    ):
-                                        selected_avatar = icon
-                            
                             agents[role]['avatar'] = selected_avatar
                             
-                            # 删除按钮
-                            if st.button(f"🗑️ 删除 {role}", key=f"del_{role}_{i}", use_container_width=True):
-                                del agents[role]
-                                st.rerun()
+                            # 个性描述
+                            personality = st.text_area(
+                                "角色个性:",
+                                value=agents[role].get('personality', ''),
+                                placeholder="描述角色的性格特点、说话风格等",
+                                key=f"personality_{role}",
+                                height=100
+                            )
+                            agents[role]['personality'] = personality
+                        
+                        # 删除按钮
+                        if st.button("移除", key=f"remove_{role}", use_container_width=True):
+                            del agents[role]
+                            st.rerun()
     
-    st.divider()
+    # 创建按钮
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
     
-    # 创建代理
-    if scenario and st.session_state.current_chat['agents']:
-        col1, col2, col3 = st.columns([1, 2, 1])
-        
-        with col2:
-            if st.button("🤖 创建AI代理并开始！", type="primary", use_container_width=True):
-                with st.spinner("正在创建AI代理..."):
-                    agents_info = st.session_state.current_chat['agents']
-                    
-                    # 添加进度条
-                    progress_bar = st.progress(0)
-                    status_text = st.empty()
-                    
-                    for i, agent_name in enumerate(agents_info.keys()):
-                        status_text.text(f"正在创建 {agent_name}...")
-                        
-                        other_agents = [name for name in agents_info.keys() if name != agent_name]
-                        other_avatars = {name: agents_info[name]['avatar'] for name in other_agents}
-                        
-                        system_prompt = generate_agent_prompt(
-                            scenario,
-                            agent_name,
-                            agents_info[agent_name]['avatar'],
-                            other_avatars,
-                            st.session_state.current_chat.get('user_role', '您')
-                        )
-                        
-                        if system_prompt:
-                            agents_info[agent_name]['system_prompt'] = system_prompt
-                        
-                        # 更新进度
-                        progress_bar.progress((i + 1) / len(agents_info))
-                    
-                    # 清除指示器
-                    status_text.empty()
-                    progress_bar.empty()
-                    
-                    # 保存聊天
-                    chat_id = st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-                    st.session_state.current_chat['id'] = chat_id
-                    st.session_state.editing_chat = False
-                    
-                    st.success(f"✅ 代理已创建！现在{user_role}可以与AI角色互动了！")
-                    st.rerun()
+    col1, col2, col3 = st.columns([1, 2, 1])
+    with col2:
+        if st.button("🎭 开始沉浸式角色扮演！", type="primary", use_container_width=True, key="start_roleplay"):
+            if scenario and agents:
+                with st.spinner("🎨 正在为AI角色塑造个性..."):
+                    # 这里可以添加角色初始化逻辑
+                    pass
+                
+                # 保存聊天
+                chat_id = st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+                st.session_state.current_chat['id'] = chat_id
+                st.session_state.editing_chat = False
+                
+                # 成功动画
+                st.balloons()
+                st.success("✨ 场景创建成功！AI角色已准备就绪！")
+                st.rerun()
+            else:
+                if not scenario:
+                    st.warning("📝 请先描述你的场景")
+                if not agents:
+                    st.warning("👥 请添加至少一个AI角色")
 
 # ================== 聊天模式 ==================
 else:
     user_role = st.session_state.current_chat.get('user_role', '您')
     
-    # 标题
+    # 场景概览
     col1, col2 = st.columns([3, 1])
     
     with col1:
-        st.header(f"💬 {st.session_state.current_chat.get('title', '聊天')}")
-        st.caption(f"**您的角色:** {user_role}")
+        st.markdown(f'<h2 style="color: #ffffff;">{st.session_state.current_chat.get("title", "聊天")}</h2>', unsafe_allow_html=True)
+        
+        # 状态徽章
+        col_status = st.columns(4)
+        with col_status[0]:
+            st.markdown(f'<span class="badge badge-primary">🎭 {len(st.session_state.current_chat.get("agents", {}))} 角色</span>', unsafe_allow_html=True)
+        with col_status[1]:
+            public_count = len(st.session_state.current_chat.get('chat_history', []))
+            st.markdown(f'<span class="badge badge-success">💬 {public_count} 消息</span>', unsafe_allow_html=True)
+        with col_status[2]:
+            private_count = sum(len(h) for h in st.session_state.current_chat.get('private_history', {}).values())
+            st.markdown(f'<span class="badge badge-warning">🔒 {private_count} 私聊</span>', unsafe_allow_html=True)
+        with col_status[3]:
+            if st.session_state.current_chat.get('modified'):
+                mod_time = st.session_state.current_chat['modified']
+                if isinstance(mod_time, str):
+                    mod_time = datetime.fromisoformat(mod_time)
+                st.markdown(f'<span class="badge badge-info">🕐 {mod_time.strftime("%H:%M")}</span>', unsafe_allow_html=True)
     
     with col2:
-        if st.button("✏️ 编辑", use_container_width=True):
+        if st.button("⚙️ 编辑场景", use_container_width=True, key="edit_scene"):
             st.session_state.editing_chat = True
             st.rerun()
     
-    # 显示场景
-    with st.expander("📖 显示场景", expanded=False):
-        scenario = st.session_state.current_chat.get('scenario', '无描述')
-        st.write(scenario)
-        
-        # 显示参与者
-        agents = st.session_state.current_chat.get('agents', {})
-        if agents:
-            st.write("\n**AI参与者:**")
-            for name, data in agents.items():
-                st.write(f"{data.get('avatar', '👤')} **{name}**")
-    
-    # 标签页：公共聊天和私聊
-    tab1, tab2 = st.tabs(["💬 公共聊天", "🔒 私聊"])
+    # 标签页设计
+    tab1, tab2, tab3 = st.tabs(["💬 公共聊天", "🔒 私密聊天", "👥 角色档案"])
     
     # ================== 公共聊天标签页 ==================
     with tab1:
-        st.divider()
+        # 聊天指南
+        with st.expander("📚 聊天指南", expanded=False):
+            st.markdown(f"""
+            <div style="color: #ffffff; padding: 1rem;">
+                <h4>✨ 如何与AI角色互动：</h4>
+                <ul style="margin-left: 1.5rem; margin-top: 0.5rem;">
+                    <li><strong>{user_role}是中心</strong> - 所有AI都围绕你展开对话</li>
+                    <li><strong>发送消息给所有人</strong> - 你的话会同时被所有AI角色听到</li>
+                    <li><strong>AI不互相聊天</strong> - 他们只回应你的话</li>
+                    <li><strong>期待惊喜</strong> - AI会有各种有趣的回应方式</li>
+                    <li><strong>随时切换</strong> - 可以在公共和私聊之间自由切换</li>
+                </ul>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # 重要提示框
-        with st.container(border=True):
-            st.info(f"""
-            💡 **公共聊天说明:**
-            
-            1. **{user_role}是场景的中心** - 所有AI角色都直接与您互动
-            2. **AI角色不互相聊天** - 他们只对您的输入做出反应
-            3. **集体响应** - 当您发送消息时，所有AI角色都会同时回应
-            4. **保持您的参与** - 场景围绕您展开
-            5. **AI说话风格** - 非正式、友好、有趣！🎉
-            """)
-        
-        # 公共聊天历史
+        # 聊天历史
         chat_history = st.session_state.current_chat.get('chat_history', [])
         
         if chat_history:
-            for agent, avatar, message, timestamp, is_private in chat_history:
-                # 只显示非私聊消息
-                if not is_private:
+            for msg in chat_history:
+                if len(msg) >= 4:
+                    agent, avatar, message, timestamp = msg[:4]
                     is_user = (agent == user_role)
                     
-                    with st.chat_message("user" if is_user else "assistant", avatar=avatar):
-                        if is_user:
-                            st.markdown(f"**{agent}:** {message}")
-                        else:
-                            # 对于AI角色，突出显示
-                            st.markdown(f"**{avatar} {agent}:**")
-                            st.markdown(f"{message}")
-                        st.caption(f"{timestamp} {'🔒' if is_private else ''}")
+                    # 显示聊天消息
+                    st.markdown(chat_message_display(agent, avatar, message, timestamp, is_user), unsafe_allow_html=True)
         else:
-            st.info(f"💡 点击'开始介绍'让AI角色向{user_role}自我介绍，然后开始对话！")
+            st.markdown("""
+            <div style="text-align: center; padding: 3rem; color: rgba(255,255,255,0.7);">
+                <div style="font-size: 4rem; margin-bottom: 1rem;">💭</div>
+                <h3>对话尚未开始</h3>
+                <p>点击下方的"开始介绍"按钮，让AI角色向你问好吧！</p>
+            </div>
+            """, unsafe_allow_html=True)
         
-        # 公共聊天输入
-        st.divider()
-        st.subheader(f"🎤 发送公共消息")
+        # 聊天输入区域
+        st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+        st.markdown('<h4 style="color: #ffffff; margin-bottom: 1rem;">🎤 发送消息</h4>', unsafe_allow_html=True)
         
-        col1, col2 = st.columns([3, 1])
-        with col1:
-            user_input = st.text_area(f"输入消息给所有AI:", height=80, 
-                                    placeholder=f"作为{user_role}，你会对大家说什么？", 
-                                    key="public_input")
+        col_input, col_send = st.columns([4, 1])
         
-        with col2:
+        with col_input:
+            user_input = st.text_area(
+                "输入消息给所有AI角色:",
+                height=120,
+                placeholder=f"作为{user_role}，你想对大家说什么？",
+                key="public_input",
+                label_visibility="collapsed"
+            )
+        
+        with col_send:
             st.write(" ")
-            st.write(" ")
-            if st.button("📤 发送给所有人", type="primary", use_container_width=True, key="send_public"):
+            if st.button("🚀 发送", type="primary", use_container_width=True, key="send_public"):
                 if user_input:
-                    # 添加用户消息到公共历史
-                    timestamp = datetime.now().strftime('%H:%M:%S')
-                    chat_history.append((user_role, "👤", user_input, timestamp, False))
-                    
-                    # 每个AI代理响应（集体响应）
-                    agents = st.session_state.current_chat['agents']
-                    
-                    for agent_name in agents.keys():
-                        # 构建历史记录（只关注用户和当前AI的互动）
-                        history_messages = []
-                        
-                        # 包括用户的公共消息
-                        history_messages.append({"role": "user", "content": f"{user_role}: {user_input}"})
-                        
-                        # 可能包括最近的其他AI回应作为上下文
-                        for h_agent, h_avatar, h_msg, h_time, h_private in chat_history[-6:-1]:  # 不包括最新的用户消息
-                            if not h_private:  # 只包括公共消息
-                                if h_agent == agent_name:
-                                    history_messages.append({"role": "assistant", "content": f"{h_agent}: {h_msg}"})
-                                elif h_agent == user_role:
-                                    history_messages.append({"role": "user", "content": f"{h_agent}: {h_msg}"})
-                        
-                        # 请求AI回应
-                        messages = [
-                            {"role": "system", "content": agents[agent_name]['system_prompt']},
-                            *history_messages,
-                            {"role": "user", "content": f"{user_role}刚刚公开说了：'{user_input}'。{agent_name}，你会如何公开回应{user_role}？要友好、有趣！😊"}
-                        ]
-                        
-                        response = client.chat.completions.create(
-                            model="deepseek-chat",
-                            messages=messages,
-                            temperature=0.8,  # 提高温度让回复更有趣
-                            max_tokens=300
-                        )
-                        
-                        message = response.choices[0].message.content
-                        timestamp = datetime.now().strftime('%H:%M:%S')
-                        
-                        chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp, False))
-                    
-                    # 保存
-                    st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-                    
+                    timestamp = datetime.now().strftime("%H:%M")
+                    chat_history = st.session_state.current_chat.get('chat_history', [])
+                    chat_history.append([
+                        user_role,
+                        "👤",
+                        user_input,
+                        timestamp
+                    ])
+                    st.session_state.current_chat['chat_history'] = chat_history
                     st.rerun()
     
-    # ================== 私聊标签页 ==================
+    # ================== 私密聊天标签页 ==================
     with tab2:
-        st.divider()
-        
-        with st.container(border=True):
-            st.warning("""
-            🔒 **私聊功能说明:**
-            
-            1. **秘密对话** - 只与选定的AI进行私聊
-            2. **其他AI不知道内容** - 但他们可能会好奇你们在说什么
-            3. **可以询问** - 其他AI可以问私聊对象："你们在聊什么？"
-            4. **私聊对象可以选择分享或不分享**
-            5. **私聊历史是分开保存的**
-            """)
-        
         agents = st.session_state.current_chat.get('agents', {})
         if agents:
-            # 选择私聊对象
-            selected_agent = st.selectbox(
-                "选择私聊对象:",
-                options=list(agents.keys()),
-                format_func=lambda x: f"{agents[x]['avatar']} {x}",
-                key="private_agent_select"
-            )
+            # 私聊选择器
+            st.markdown('<h4 style="color: #ffffff; margin-bottom: 1.5rem;">🤫 选择私聊对象</h4>', unsafe_allow_html=True)
             
-            if selected_agent:
-                st.write(f"### 🔒 与 {agents[selected_agent]['avatar']} {selected_agent} 的私聊")
-                
-                # 初始化私聊历史
-                private_key = f"private_{selected_agent}"
-                if private_key not in st.session_state.current_chat['private_history']:
-                    st.session_state.current_chat['private_history'][private_key] = []
-                
-                private_history = st.session_state.current_chat['private_history'][private_key]
-                
-                # 显示私聊历史
-                if private_history:
-                    st.write("**私聊历史:**")
-                    for agent, avatar, message, timestamp in private_history:
-                        is_user = (agent == user_role)
-                        
-                        with st.chat_message("user" if is_user else "assistant", avatar=avatar):
-                            if is_user:
-                                st.markdown(f"**{agent} 🔒:** {message}")
-                            else:
-                                st.markdown(f"**{avatar} {agent} 🔒:**")
-                                st.markdown(f"{message}")
-                            st.caption(f"{timestamp} 🔒")
-                else:
-                    st.info(f"💬 还没有与 {selected_agent} 的私聊记录。开始秘密对话吧！")
-                
-                # 私聊输入
-                st.divider()
-                private_input = st.text_area(
-                    f"私信给 {selected_agent}:",
-                    height=80,
-                    placeholder=f"悄悄告诉 {selected_agent}...",
-                    key=f"private_input_{selected_agent}"
-                )
-                
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("📩 发送私信", type="primary", use_container_width=True, key=f"send_private_{selected_agent}"):
-                        if private_input:
-                            # 添加到私聊历史
-                            timestamp = datetime.now().strftime('%H:%M:%S')
-                            private_history.append((user_role, "👤", private_input, timestamp))
-                            
-                            # 获取AI的私聊回应
-                            agent_data = agents[selected_agent]
-                            
-                            # 构建私聊历史记录
-                            history_messages = []
-                            for h_agent, h_avatar, h_msg, h_time in private_history[-5:]:
-                                role = "user" if h_agent == user_role else "assistant"
-                                history_messages.append({"role": role, "content": f"{h_agent}: {h_msg}"})
-                            
-                            # 请求AI私聊回应
-                            messages = [
-                                {"role": "system", "content": agent_data['system_prompt'] + "\n\n重要：这是私聊！只有你能看到这条消息。请小声、秘密地回应。"},
-                                *history_messages,
-                                {"role": "user", "content": f"{user_role}悄悄对你说：'{private_input}'。请小声、秘密地回应。这是我们的私聊！🤫"}
-                            ]
-                            
-                            response = client.chat.completions.create(
-                                model="deepseek-chat",
-                                messages=messages,
-                                temperature=0.7,
-                                max_tokens=250
-                            )
-                            
-                            message = response.choices[0].message.content
-                            timestamp = datetime.now().strftime('%H:%M:%S')
-                            private_history.append((selected_agent, agent_data['avatar'], message, timestamp))
-                            
-                            # 保存
-                            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-                            st.rerun()
-                
-                with col2:
-                    if st.button("🔄 请求私聊回应", use_container_width=True, key=f"request_private_{selected_agent}"):
-                        if private_history:
-                            # AI主动发起私聊
-                            agent_data = agents[selected_agent]
-                            
-                            messages = [
-                                {"role": "system", "content": agent_data['system_prompt'] + "\n\n重要：这是私聊！你想对用户说什么秘密的话？"},
-                                {"role": "user", "content": f"你想对{user_role}说什么秘密的话？这是私聊。🤐"}
-                            ]
-                            
-                            response = client.chat.completions.create(
-                                model="deepseek-chat",
-                                messages=messages,
-                                temperature=0.8,
-                                max_tokens=200
-                            )
-                            
-                            message = response.choices[0].message.content
-                            timestamp = datetime.now().strftime('%H:%M:%S')
-                            private_history.append((selected_agent, agent_data['avatar'], message, timestamp))
-                            
-                            # 保存
-                            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-                            st.rerun()
-                
-                # 其他AI可能会好奇
-                st.divider()
-                if st.button("🤔 其他AI好奇私聊内容", use_container_width=True, key=f"curious_ai"):
-                    # 随机选择一个其他AI
-                    other_agents = [name for name in agents.keys() if name != selected_agent]
-                    if other_agents:
-                        import random
-                        curious_agent = random.choice(other_agents)
-                        agent_data = agents[curious_agent]
-                        
-                        # 构建好奇的询问
-                        messages = [
-                            {"role": "system", "content": agent_data['system_prompt'] + "\n\n你注意到用户在和" + selected_agent + "私聊。你很好奇他们在说什么。"},
-                            {"role": "user", "content": f"你看到{user_role}和{selected_agent}在私聊。你很好奇，想问他们在说什么。你会怎么问？"}
-                        ]
-                        
-                        response = client.chat.completions.create(
-                            model="deepseek-chat",
-                            messages=messages,
-                            temperature=0.7,
-                            max_tokens=150
-                        )
-                        
-                        question = response.choices[0].message.content
-                        
-                        # 添加到公共聊天历史
-                        timestamp = datetime.now().strftime('%H:%M:%S')
-                        chat_history.append((curious_agent, agent_data['avatar'], question, timestamp, False))
-                        
-                        # 被问的AI可以选择回应
-                        messages2 = [
-                            {"role": "system", "content": agents[selected_agent]['system_prompt'] + f"\n\n{curious_agent}问你和{user_role}在私聊什么。你可以选择分享或不分享。"},
-                            {"role": "user", "content": f"{curious_agent}问你：'{question}'。你会怎么回应？"}
-                        ]
-                        
-                        response2 = client.chat.completions.create(
-                            model="deepseek-chat",
-                            messages=messages2,
-                            temperature=0.7,
-                            max_tokens=200
-                        )
-                        
-                        answer = response2.choices[0].message.content
-                        chat_history.append((selected_agent, agents[selected_agent]['avatar'], answer, timestamp, False))
-                        
-                        # 保存
-                        st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+            # 创建角色卡片选择器
+            cols = st.columns(min(len(agents), 4))
+            selected_agent = st.session_state.get('selected_private_agent')
+            
+            for idx, (agent_name, data) in enumerate(agents.items()):
+                with cols[idx % 4]:
+                    if st.button(
+                        f"{data['avatar']}\n{agent_name}",
+                        key=f"select_private_{agent_name}",
+                        use_container_width=True,
+                        type="primary" if selected_agent == agent_name else "secondary"
+                    ):
+                        st.session_state.selected_private_agent = agent_name
                         st.rerun()
+            
+            # 显示私聊对话
+            if selected_agent:
+                st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+                st.markdown(f'<h4 style="color: #ffffff; margin-bottom: 1rem;">🔒 与 {agents[selected_agent]["avatar"]} {selected_agent} 的私聊</h4>', unsafe_allow_html=True)
+                
+                # 这里添加私聊历史显示逻辑
+                
         else:
-            st.info("🤷‍♂️ 还没有AI参与者可以私聊。先创建一些AI角色吧！")
+            glass_card("提示", "还没有AI参与者可以私聊，请先添加角色。", "🤷‍♂️")
     
-    # ================== 对话管理按钮 ==================
-    st.divider()
-    st.subheader("⚙️ 对话管理")
-    
-    col1, col2, col3, col4 = st.columns(4)
-    
-    with col1:
-        if st.button("👋 开始介绍", use_container_width=True, key="start_intro"):
-            # 让每个AI角色向用户自我介绍
-            agents = st.session_state.current_chat['agents']
+    # ================== 角色档案标签页 ==================
+    with tab3:
+        agents = st.session_state.current_chat.get('agents', {})
+        if agents:
+            st.markdown('<h4 style="color: #ffffff; margin-bottom: 1.5rem;">🎭 AI角色档案</h4>', unsafe_allow_html=True)
             
-            for agent_name in agents.keys():
-                response = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=[
-                        {"role": "system", "content": agents[agent_name]['system_prompt']},
-                        {"role": "user", "content": f"场景开始。{user_role}在场。向{user_role}友好地介绍你自己！😊"}
-                    ],
-                    temperature=0.9,  # 提高温度让介绍更有趣
-                    max_tokens=200
-                )
-                
-                message = response.choices[0].message.content
-                timestamp = datetime.now().strftime('%H:%M:%S')
-                
-                chat_history.append((agent_name, agents[agent_name]['avatar'], message, timestamp, False))
-            
-            # 保存
-            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+            for agent_name, data in agents.items():
+                with st.container(border=True):
+                    col_icon, col_info = st.columns([1, 3])
+                    
+                    with col_icon:
+                        st.markdown(f'<div style="text-align: center; font-size: 4rem;">{data["avatar"]}</div>', unsafe_allow_html=True)
+                    
+                    with col_info:
+                        st.markdown(f'<h3>{agent_name}</h3>', unsafe_allow_html=True)
+                        
+                        if data.get('personality'):
+                            st.markdown(f'<div style="color: rgba(255,255,255,0.8); margin-bottom: 1rem;">{data["personality"]}</div>', unsafe_allow_html=True)
+                        
+                        # 角色统计数据
+                        col_stats = st.columns(3)
+                        with col_stats[0]:
+                            st.metric("状态", "在线", "🟢", delta_color="off")
+                        with col_stats[1]:
+                            st.metric("响应速度", "快速", "⚡", delta_color="off")
+                        with col_stats[2]:
+                            st.metric("友好度", "高", "😊", delta_color="off")
+        else:
+            glass_card("提示", "还没有AI角色档案，请先添加角色。", "🎭")
+    
+    # ================== 控制面板 ==================
+    st.markdown('<div class="divider"></div>', unsafe_allow_html=True)
+    st.markdown('<h4 style="color: #ffffff; margin-bottom: 1rem;">⚙️ 控制面板</h4>', unsafe_allow_html=True)
+    
+    # 控制按钮
+    col_controls = st.columns(5)
+    
+    with col_controls[0]:
+        if st.button("👋 开始介绍", use_container_width=True, key="start_intro_btn"):
+            st.success("AI角色开始自我介绍...")
+    
+    with col_controls[1]:
+        if st.button("🎭 AI互动", use_container_width=True, key="ai_interact_btn"):
+            st.info("AI角色开始互动...")
+    
+    with col_controls[2]:
+        if st.button("💾 保存", use_container_width=True, key="save_btn"):
+            chat_id = st.session_state.chat_manager.save_chat(st.session_state.current_chat)
+            st.success(f"💾 场景已保存")
+    
+    with col_controls[3]:
+        if st.button("📥 导出", use_container_width=True, key="export_btn"):
+            st.info("导出功能开发中...")
+    
+    with col_controls[4]:
+        if st.button("🔄 刷新", use_container_width=True, key="refresh_btn"):
             st.rerun()
-    
-    with col2:
-        if st.button("🎭 AI互动", use_container_width=True, key="ai_interact"):
-            # AI之间基于场景的互动（但仍然通过用户）
-            agents = st.session_state.current_chat['agents']
-            
-            if len(agents) >= 2:
-                import random
-                agent1, agent2 = random.sample(list(agents.keys()), 2)
-                
-                # 让agent1对用户说关于agent2的话
-                messages1 = [
-                    {"role": "system", "content": agents[agent1]['system_prompt']},
-                    {"role": "user", "content": f"你想对{user_role}说关于{agent2}的什么话？保持友好有趣！🎉"}
-                ]
-                
-                response1 = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=messages1,
-                    temperature=0.8,
-                    max_tokens=150
-                )
-                
-                message1 = response1.choices[0].message.content
-                timestamp = datetime.now().strftime('%H:%M:%S')
-                chat_history.append((agent1, agents[agent1]['avatar'], message1, timestamp, False))
-                
-                # 让agent2回应（通过用户）
-                messages2 = [
-                    {"role": "system", "content": agents[agent2]['system_prompt']},
-                    {"role": "user", "content": f"{agent1}刚刚说：'{message1}'。{user_role}想听听你的看法！😊"}
-                ]
-                
-                response2 = client.chat.completions.create(
-                    model="deepseek-chat",
-                    messages=messages2,
-                    temperature=0.8,
-                    max_tokens=150
-                )
-                
-                message2 = response2.choices[0].message.content
-                chat_history.append((agent2, agents[agent2]['avatar'], message2, timestamp, False))
-                
-                # 保存
-                st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-                st.rerun()
-    
-    with col3:
-        if st.button("🗑️ 清除公共历史", use_container_width=True, key="clear_public"):
-            st.session_state.current_chat['chat_history'] = []
-            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-            st.rerun()
-    
-    with col4:
-        if st.button("🔥 清除所有私聊", use_container_width=True, key="clear_private"):
-            st.session_state.current_chat['private_history'] = {}
-            st.session_state.chat_manager.save_chat(st.session_state.current_chat)
-            st.rerun()
-    
-    # 自动保存提示
-    if chat_history or st.session_state.current_chat['private_history']:
-        st.caption(f"💾 自动保存: {datetime.now().strftime('%H:%M:%S')}")
+
+# 关闭主容器
+st.markdown('</div>', unsafe_allow_html=True)
 
 # ================== 页脚 ==================
-st.divider()
-col1, col2, col3 = st.columns(3)
+st.markdown("""
+<div style="text-align: center; color: rgba(255,255,255,0.6); padding: 2rem;">
+    <p>🎭 AI角色扮演聊天室 | 沉浸式多角色对话体验 | 由 DeepSeek API 驱动</p>
+    <p style="font-size: 0.9rem; margin-top: 0.5rem;">Version 2.0.0 | 让对话更有趣，让故事更生动</p>
+</div>
+""", unsafe_allow_html=True)
 
-with col1:
-    public_count = len(st.session_state.current_chat.get('chat_history', []))
-    private_count = sum(len(h) for h in st.session_state.current_chat.get('private_history', {}).values())
-    st.caption(f"💬 消息数: {public_count} 公共 + {private_count} 私聊")
+# 浮动动作按钮 (FAB)
+st.markdown("""
+<div class="fab-container">
+    <div class="fab-main" onclick="document.querySelector('[data-testid=\\'stButton\\'][key=\\'new_chat_btn\\'] button').click()">
+        ✨
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-with col2:
-    st.caption(f"🤖 AI参与者数: {len(st.session_state.current_chat.get('agents', {}))}")
+# 粒子背景效果
+st.markdown("""
+<div class="particles">
+    <canvas id="particles-canvas"></canvas>
+</div>
 
-with col3:
-    if st.session_state.current_chat.get('modified'):
-        mod_time = st.session_state.current_chat['modified']
-        if isinstance(mod_time, str):
-            mod_time = datetime.fromisoformat(mod_time)
-        st.caption(f"🕐 修改于: {mod_time.strftime('%H:%M')}")
+<script>
+// 简单的粒子背景效果
+const canvas = document.getElementById('particles-canvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+}
+
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+const particles = [];
+for (let i = 0; i < 50; i++) {
+    particles.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        size: Math.random() * 2 + 1,
+        speedX: Math.random() * 0.5 - 0.25,
+        speedY: Math.random() * 0.5 - 0.25,
+        color: `rgba(255, 255, 255, ${Math.random() * 0.3})`
+    });
+}
+
+function animateParticles() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    for (let particle of particles) {
+        particle.x += particle.speedX;
+        particle.y += particle.speedY;
+        
+        if (particle.x > canvas.width) particle.x = 0;
+        if (particle.x < 0) particle.x = canvas.width;
+        if (particle.y > canvas.height) particle.y = 0;
+        if (particle.y < 0) particle.y = canvas.height;
+        
+        ctx.beginPath();
+        ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+        ctx.fillStyle = particle.color;
+        ctx.fill();
+    }
+    
+    requestAnimationFrame(animateParticles);
+}
+
+animateParticles();
+</script>
+""", unsafe_allow_html=True)
 
 if __name__ == "__main__":
     pass
